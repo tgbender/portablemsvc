@@ -129,7 +129,7 @@ def install_msvc(
         host,
         targets,
         manifest_msvc_version=msvc_full,
-        sdk_version=sdk_ver,
+        sdk_manifest_version=sdk_ver,
     )
 
 

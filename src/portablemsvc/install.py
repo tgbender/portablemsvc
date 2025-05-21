@@ -209,7 +209,7 @@ def install_msvc_components(
     host: str,
     targets: List[str],
     manifest_msvc_version: Optional[str] = None,
-    sdk_version: Optional[str] = None
+    sdk_manifest_version: Optional[str] = None
 ) -> Dict[str, str]:
     """
     Install MSVC components after extraction.
@@ -236,9 +236,11 @@ def install_msvc_components(
     detected_versions = _detect_versions(output_dir)
     internal_msvc = detected_versions['msvc_version']
     internal_sdk  = detected_versions['sdk_version']
-    # Use manifest version if provided, else fall back to internal; rebind locals
-    manifest_ver = manifest_msvc_version or internal_msvc
-    sdk_ver      = sdk_version or internal_sdk
+    # Use manifest version if provided; record manifest vs internal SDK
+    manifest_ver     = manifest_msvc_version or internal_msvc
+    manifest_sdk     = sdk_manifest_version
+    # Always use the detected internal SDK version for env.json and installation record
+    sdk_ver          = internal_sdk
     # Override locals for downstream steps
     msvc_version = internal_msvc
     sdk_version = sdk_ver
@@ -267,7 +269,7 @@ def install_msvc_components(
         output_dir=output_dir,
         manifest_msvc_version=manifest_ver,
         internal_msvc_version=internal_msvc,
-        sdk_version=sdk_version,
+        sdk_version=sdk_ver,
         host=host,
         targets=targets
     )
@@ -275,7 +277,7 @@ def install_msvc_components(
     return {
         'msvc_manifest_version': manifest_ver,
         'msvc_internal_version': internal_msvc,
-        'sdk_version':           sdk_version,
+        'sdk_version':           sdk_ver,
         'install_id':            install_id
     }
 
