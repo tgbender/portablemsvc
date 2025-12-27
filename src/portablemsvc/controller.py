@@ -16,7 +16,7 @@ from .install_status      import (
     save_installed_version,
     get_installed_versions,
 )
-from .install             import _generate_env_spec
+from .install             import _generate_env_spec, _write_activation_scripts
 
 logger = logging.getLogger(__name__)
 
@@ -133,14 +133,15 @@ def install_msvc(
     )
 
 
-    # emit env.json so registry_helpers knows exactly what to register
-    _generate_env_spec(
+    # emit env.json so registry_helpers and activation scripts know exactly what to set
+    spec = _generate_env_spec(
         output_dir,
         host,
         targets,
         install_result["msvc_internal_version"],
         install_result["sdk_version"],
     )
+    _write_activation_scripts(output_dir, spec)
     # automatic registration into HKCU\Environment has been disabled;
     # run "portablemsvc register" manually if you want to set environment vars
 

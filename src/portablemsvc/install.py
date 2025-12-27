@@ -294,11 +294,26 @@ def _generate_env_spec(
     needed to activate this MSVC install.
     """
     install_root = install_root.resolve()
+    msvc_bin_root = (
+        install_root / "VC" / "Tools" / "MSVC" / msvc_version / f"bin/Host{host}"
+    )
+    # Pick a primary target for CC/CXX/AR; first requested, or host as fallback
+    primary_tgt = targets[0] if targets else host
+    msvc_bin_primary = msvc_bin_root / primary_tgt
+
     spec: Dict[str, Any] = {
         "VSCMD_ARG_HOST_ARCH": host,
         "VSCMD_ARG_TGT_ARCH": targets,
         "VCToolsVersion": msvc_version,
         "WindowsSDKVersion": sdk_version,
+        # Compiler / tool variables (absolute paths)
+        "CC":  str(msvc_bin_primary / "cl.exe"),
+        "CXX": str(msvc_bin_primary / "cl.exe"),
+        "AR":  str(msvc_bin_primary / "lib.exe"),
+        # nmake resolves via PATH
+        "MAKE": "nmake",
+        # classic VS variable pointing at VC root
+        "VCINSTALLDIR": str(install_root / "VC") + "\\",
         # legacy compatibility variables
         "VCToolsInstallDir": str(install_root / "VC" / "Tools" / "MSVC" / msvc_version) + "\\",
         "WindowsSDKDir":     str(install_root / "Windows Kits" / "10") + "\\",
@@ -307,10 +322,22 @@ def _generate_env_spec(
     # PATH entries
     path_entries: List[str] = []
     for tgt in targets:
-        path_entries.append(str(
-            install_root / "VC" / "Tools" / "MSVC" / msvc_version
-                          / f"bin/Host{host}" / tgt
-        ))
+        path_entries.append(str(msvc_bin_root / tgt))
+
+    # Add MSVC CRT redist folders to PATH if present (runtime DLLs)
+    # Layout example:
+    #   VC/Redist/MSVC/<redist_version>/<arch>/Microsoft.VC*.CRT/
+    redist_root = install_root / "VC" / "Redist" / "MSVC"
+    if redist_root.exists():
+        for ver_dir in sorted(p for p in redist_root.iterdir() if p.is_dir()):
+            for tgt in targets:
+                arch_root = ver_dir / tgt
+                if not arch_root.exists():
+                    continue
+                for crt_dir in arch_root.glob("Microsoft.VC*.CRT"):
+                    if crt_dir.is_dir():
+                        path_entries.append(str(crt_dir))
+
     path_entries.append(str(
         install_root / "Windows Kits" / "10" / "bin" / sdk_version / host
     ))
@@ -359,7 +386,8 @@ def _write_activation_scripts(
     cmd = ["@echo off", "REM Activate portable MSVC\n"]
     # simple vars
     for key in ("VSCMD_ARG_HOST_ARCH","VSCMD_ARG_TGT_ARCH",
-                "VCToolsVersion","WindowsSDKVersion"):
+                "VCToolsVersion","WindowsSDKVersion",
+                "CC","CXX","AR","MAKE","VCINSTALLDIR"):
         val = spec[key]
         if isinstance(val, list):
             val = " ".join(val)
@@ -386,6 +414,12 @@ def _write_activation_scripts(
         '$env:VSCMD_ARG_TGT_ARCH  = $json.VSCMD_ARG_TGT_ARCH -join " "',
         '$env:VCToolsVersion      = $json.VCToolsVersion',
         '$env:WindowsSDKVersion   = $json.WindowsSDKVersion',
+        "# Compiler / tool variables",
+        '$env:CC                  = $json.CC',
+        '$env:CXX                 = $json.CXX',
+        '$env:AR                  = $json.AR',
+        '$env:MAKE                = $json.MAKE',
+        '$env:VCINSTALLDIR        = $json.VCINSTALLDIR',
         "",
         "# prepend PATH",
         '$newPath = $json.PATH | ForEach-Object { Join-Path $here $_ }',
