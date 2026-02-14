@@ -43,6 +43,16 @@ classifiers = [
 testpaths = ["tests"]
 python_files = "test_*.py"
 
+[tool.mypy]
+ignore_missing_imports = true
+disable_error_code = ["import-untyped"]
+warn_unused_ignores = true
+
+[tool.pyright]
+pythonVersion = "3.10"
+reportMissingImports = "none"
+reportMissingTypeStubs = "none"
+
 [project.optional-dependencies]
 dev = [
   "pytest>=9.0.0,<10.0.0",
