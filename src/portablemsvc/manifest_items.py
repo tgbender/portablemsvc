@@ -1,6 +1,4 @@
 import logging
-from typing import List, Dict, Any
-from .config import DEFAULT_HOST, DEFAULT_TARGET
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +8,7 @@ def get_msvc_packages(msvc_full_ver, host, targets):
     try:
         # Base packages
         msvc_packages = [
-            f"microsoft.visualcpp.dia.sdk",
+            "microsoft.visualcpp.dia.sdk",
             f"microsoft.vc.{msvc_full_ver}.crt.headers.base",
             f"microsoft.vc.{msvc_full_ver}.crt.source.base",
             f"microsoft.vc.{msvc_full_ver}.asan.headers.base",
@@ -53,11 +51,11 @@ def get_sdk_packages(targets):
     try:
         # Base SDK packages
         sdk_packages = [
-            f"Windows SDK for Windows Store Apps Tools-x86_en-us.msi",
-            f"Windows SDK for Windows Store Apps Headers-x86_en-us.msi",
-            f"Windows SDK for Windows Store Apps Headers OnecoreUap-x86_en-us.msi",
-            f"Windows SDK for Windows Store Apps Libs-x86_en-us.msi",
-            f"Universal CRT Headers Libraries and Sources-x86_en-us.msi",
+            "Windows SDK for Windows Store Apps Tools-x86_en-us.msi",
+            "Windows SDK for Windows Store Apps Headers-x86_en-us.msi",
+            "Windows SDK for Windows Store Apps Headers OnecoreUap-x86_en-us.msi",
+            "Windows SDK for Windows Store Apps Libs-x86_en-us.msi",
+            "Universal CRT Headers Libraries and Sources-x86_en-us.msi",
         ]
 
         # All architectures need headers

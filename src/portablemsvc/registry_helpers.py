@@ -8,7 +8,6 @@ from winregenv import (
 )
 from winregenv import (
     REG_SZ,
-    REG_DWORD,
     REG_EXPAND_SZ,
     expand_environment_strings,
     broadcast_setting_change,
@@ -24,8 +23,6 @@ import datetime
 import logging
 
 logger = logging.getLogger(__name__)
-from filelock import FileLock
-from .config import CONFIG_DIR
 
 # Initialize the registry root for HKEY_CURRENT_USER
 hkcu = RegistryRoot("HKCU")

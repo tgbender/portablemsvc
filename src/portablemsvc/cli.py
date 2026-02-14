@@ -1,5 +1,6 @@
 from plumbum.cli import Application, SwitchAttr, Flag
-import logging, sys
+import logging
+import sys
 from pathlib import Path
 
 from .config import DEFAULT_HOST, ALL_HOSTS, DEFAULT_TARGET, ALL_TARGETS

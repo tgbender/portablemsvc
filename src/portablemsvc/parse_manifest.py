@@ -1,6 +1,5 @@
 import logging
 from typing import Dict, List, Any, Optional
-from pathlib import Path
 
 from .manifest_items import get_msvc_packages, get_sdk_packages, resolve_redist_packages
 from .config import (
@@ -28,7 +27,7 @@ def _build_package_lookup(vs_manifest):
             packages.setdefault(p["id"].lower(), []).append(p)
         return packages
     except KeyError as e:
-        raise ValueError(f"Invalid manifest structure: missing 'packages' key") from e
+        raise ValueError("Invalid manifest structure: missing 'packages' key") from e
 
 
 def _find_msvc_versions(packages):
@@ -42,7 +41,7 @@ def _find_msvc_versions(packages):
                 pver = ".".join(pid.split(".")[2:4])
                 if pver[0].isnumeric():
                     msvc_versions[pver] = pid
-            except (IndexError, AttributeError) as e:
+            except (IndexError, AttributeError):
                 logger.warning(f"Skipping malformed MSVC package ID: {pid}")
                 continue
 
@@ -62,7 +61,7 @@ def _find_sdk_versions(packages):
                 pver = pid.split(".")[-1]
                 if pver.isnumeric():
                     sdk_versions[pver] = pid
-            except (IndexError, AttributeError) as e:
+            except (IndexError, AttributeError):
                 logger.warning(f"Skipping malformed SDK package ID: {pid}")
                 continue
 

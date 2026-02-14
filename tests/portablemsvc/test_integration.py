@@ -1,5 +1,4 @@
 import pytest
-from pathlib import Path
 from portablemsvc.controller import install_msvc
 
 

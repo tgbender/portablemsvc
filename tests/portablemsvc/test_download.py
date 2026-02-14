@@ -1,12 +1,10 @@
 import pytest
-import os
 from pathlib import Path
 import tempfile
 import hashlib
 import requests
 
 from portablemsvc.download import download_file, download_files
-from portablemsvc.config import CACHE_DIR
 
 # Using a small file from python.org
 TEST_URL = "https://www.python.org/static/favicon.ico"

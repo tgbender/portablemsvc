@@ -1,4 +1,3 @@
-import os
 import shutil
 import logging
 import json
@@ -8,8 +7,6 @@ from typing import Dict, List, Set, Optional, Any
 from .install_status import (
     save_installed_version,
     is_version_installed,
-    get_installed_versions,
-    remove_installation,
 )
 
 logger = logging.getLogger(__name__)
@@ -76,7 +73,6 @@ def _cleanup_unnecessary_files(
 
     # Remove architectures not in targets
     from .config import ALL_TARGETS
-    import json
 
     for arch in ALL_TARGETS:
         if arch not in targets:

@@ -6,7 +6,7 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Set
+from typing import Dict, List, Any, Optional
 
 try:
     import filelock
@@ -15,7 +15,7 @@ try:
 except ImportError:
     HAS_FILELOCK = False
 
-from .config import CONFIG_DIR, TEMP_DIR
+from .config import CONFIG_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +144,7 @@ def save_installed_version(
             try:
                 installations = json.loads(db_path.read_text())
             except (json.JSONDecodeError, IOError):
-                logger.warning(f"Failed to read existing database, creating new one")
+                logger.warning("Failed to read existing database, creating new one")
 
         # Add new installation
         installations[install_id] = {
@@ -247,7 +247,7 @@ def remove_installation(
         try:
             installations = json.loads(db_path.read_text())
         except (json.JSONDecodeError, IOError):
-            logger.error(f"Failed to read installation database")
+            logger.error("Failed to read installation database")
             return False
 
         # Check if installation exists

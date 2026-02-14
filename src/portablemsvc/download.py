@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import requests
 import time
-from typing import Dict, Any, Tuple, List, Optional
+from typing import Dict, Any, Tuple
 
 from filelock import FileLock, Timeout
 

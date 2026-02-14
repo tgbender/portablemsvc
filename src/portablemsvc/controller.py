@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .config import CACHE_DIR, DATA_DIR, DEFAULT_HOST, DEFAULT_TARGET
-from .registry_helpers import register_toolchain
 from .manifest import get_vs_manifest
 from .parse_manifest import parse_vs_manifest
 from .download_manifest import download_manifest_files
@@ -13,7 +12,6 @@ from .extract import extract_package_files
 from .install import install_msvc_components
 from .install_status import (
     is_version_installed,
-    save_installed_version,
     get_installed_versions,
 )
 from .install import _generate_env_spec, _write_activation_scripts
