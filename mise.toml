@@ -7,6 +7,9 @@ prek = "latest"
 ruff = "latest"
 bun = "latest"
 taplo = "latest"
+# Windows doesn't currently work with bunx and npm tools. We use bun directly instead
+#"npm:prettier" = "latest"
+#"npm:pyright" = "latest"
 
 [env]
 MISE_NPM_PACKAGE_MANAGER = "bun" # Use bun instead of npm for faster installs
@@ -21,6 +24,10 @@ windows_default_inline_shell_args = "powershell -NoProfile -Command"
 description = "Install pre-commit hooks"
 run = "prek install"
 
+[tasks.uv-sync-all]
+description = "Sync Python tools with uv"
+run = "uv sync --all-extras"
+
 ### PRE-COMMIT STUFF
 [tasks.trufflehog-scan]
 description = "Scan the git history for secrets using trufflehog. To be used in precommit. Network calls disabled"
@@ -34,7 +41,13 @@ depends = ["ruff-fix", "ruff-format", "prettier-format", "taplo-format"]
 
 [tasks.lint]
 description = "Run all linters/type checks"
-depends = ["ruff-check", "mypy", "prettier-check", "taplo-check"]
+depends = [
+  "ruff-check",
+  "mypy",
+  "prettier-check",
+  "taplo-check",
+  "pyright-check",
+]
 
 [tasks.ruff-check]
 description = "Check code with ruff"
@@ -51,6 +64,10 @@ run = "ruff format ."
 [tasks.mypy]
 description = "Run mypy type checks"
 run = "mypy ."
+
+[tasks.pyright-check]
+description = "Run pyright type checks"
+run = "bunx pyright"
 
 [tasks.prettier-format]
 description = "Format non-Python files (md, toml, json, yaml)"
