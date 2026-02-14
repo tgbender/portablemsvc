@@ -26,7 +26,7 @@ def _download_channel_manifest(
     *,
     channel: str = "release",
     cache: bool = True,
-    cache_dir: str = CACHE_DIR,
+    cache_dir: Path = CACHE_DIR,
     cache_ttl: int = MANIFEST_CACHE_TTL,
 ):
     # Pick the right channel
@@ -121,7 +121,7 @@ def _download_vs_manifest(
     vs_manifest_url: str,
     *,
     cache: bool = True,
-    cache_dir: str = CACHE_DIR,
+    cache_dir: Path = CACHE_DIR,
     cache_ttl: int = MANIFEST_CACHE_TTL,
 ) -> dict:
     """
@@ -200,7 +200,7 @@ def get_vs_manifest(
     *,
     channel: str = "release",
     cache: bool = True,
-    cache_dir: str = CACHE_DIR,
+    cache_dir: Path = CACHE_DIR,
     cache_ttl: int = MANIFEST_CACHE_TTL,
 ) -> dict:
     """
@@ -256,7 +256,7 @@ def get_license_url(
     *,
     channel: str = "release",
     cache: bool = True,
-    cache_dir: str = CACHE_DIR,
+    cache_dir: Path = CACHE_DIR,
     cache_ttl: int = MANIFEST_CACHE_TTL,
 ) -> str:
     """

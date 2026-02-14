@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 from winregenv import (
     RegistryRoot,
     RegistryValueNotFoundError,
@@ -140,13 +140,13 @@ _LOCK_FILE = _STATE_FILE.with_suffix(".lock")
 _LOCK_TIMEOUT = 60  # seconds
 
 
-def _load_state() -> Dict[str, str]:
+def _load_state() -> Dict[str, Any]:
     if _STATE_FILE.exists():
         return json.loads(_STATE_FILE.read_text(encoding="utf-8"))
     return {"registered": {}}
 
 
-def _save_state(state: Dict[str, str]) -> None:
+def _save_state(state: Dict[str, Any]) -> None:
     # atomic write
     tmp = _STATE_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(state, indent=2), encoding="utf-8")

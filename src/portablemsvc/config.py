@@ -1,4 +1,5 @@
 # CONFIG.py setup.
+from pathlib import Path
 from platformdirs import (
     user_config_dir,
     user_data_dir,
@@ -6,16 +7,16 @@ from platformdirs import (
     user_runtime_dir,
 )
 
-CONFIG_DIR = user_config_dir(
+CONFIG_DIR = Path(user_config_dir(
     "msvc", "portable", ensure_exists=True
-)  # store installer settings here
-DATA_DIR = user_data_dir(
+))  # store installer settings here
+DATA_DIR = Path(user_data_dir(
     "msvc", "portable", ensure_exists=True
-)  # store the msvc compiler here
-CACHE_DIR = user_cache_dir("msvc", "portable", ensure_exists=True)  # cache things here
-TEMP_DIR = user_runtime_dir(
+))  # store the msvc compiler here
+CACHE_DIR = Path(user_cache_dir("msvc", "portable", ensure_exists=True))  # cache things here
+TEMP_DIR = Path(user_runtime_dir(
     "msvc", "portable", ensure_exists=True
-)  # put temp things here
+))  # put temp things here
 
 DEFAULT_HOST = "x64"
 ALL_HOSTS = "x64 x86 arm64".split()

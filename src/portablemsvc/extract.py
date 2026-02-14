@@ -6,7 +6,7 @@ import logging
 from .parse_msi import extract_cab_names as _get_msi_cab_files
 
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Generator
 from contextlib import contextmanager
 
 from plumbum import local
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 @contextmanager
-def _prepare_working_directory(base_dir: Path) -> Path:
+def _prepare_working_directory(base_dir: Path) -> Generator[Path, None, None]:
     """
     Create a temporary working directory under `base_dir`, yield it,
     then delete it on exit (even if errors occur).
@@ -80,7 +80,7 @@ def extract_package_files(
     temp_output_dir = output_dir.with_name(f"{output_dir.name}_temp_{uuid.uuid4().hex}")
     temp_output_dir.mkdir(parents=True, exist_ok=True)
 
-    results = {"msvc": set(), "sdk": set()}
+    results: Dict[str, Set[Path]] = {"msvc": set(), "sdk": set()}
 
     try:
         with _prepare_working_directory(Path(TEMP_DIR)) as workdir:
