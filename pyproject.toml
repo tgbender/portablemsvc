@@ -3,16 +3,14 @@ name = "portablemsvc"
 version = "0.1.0"
 description = "Installs Portable MSVC tools in user space"
 readme = "README.md"
-authors = [
-  { name="Travis Bender"},
-]
+authors = [{ name = "Travis Bender" }]
 requires-python = ">=3.9"
 dependencies = [
-    "requests>=2.32.0",
-    "filelock>=3.0.0",
-    "winregenv>=0.2.0",
-    "plumbum>=1.9.0",
-    "platformdirs>=4.3.8"
+  "requests>=2.32.0",
+  "filelock>=3.0.0",
+  "winregenv>=0.2.0",
+  "plumbum>=1.9.0",
+  "platformdirs>=4.3.8",
 ]
 
 [project.scripts]
@@ -22,23 +20,23 @@ portablemsvc = "portablemsvc.cli:PortableMSVCApp"
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
-keywords = ["compiler", "environment","cli"]
+keywords = ["compiler", "environment", "cli"]
 
 license = "MIT"
 license-files = ["LICENSE"]
 
 classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Developers",
-    "Intended Audience :: System Administrators",
-    "Operating System :: Microsoft :: Windows",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Topic :: System :: Systems Administration",
-    "Topic :: Software Development :: Libraries :: Python Modules",
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: System Administrators",
+  "Operating System :: Microsoft :: Windows",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: System :: Systems Administration",
+  "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
 [tool.pytest.ini_options]
@@ -46,8 +44,4 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=8.3.5",
-    "pytest-mock>=3.14.0",
-]
-
+dev = ["pytest>=8.3.5", "pytest-mock>=3.14.0"]

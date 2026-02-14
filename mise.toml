@@ -1,6 +1,6 @@
 [tools]
 # Using latest for tools. use a mise lockfile for reproducibility.
-trufflehog = "latest" # Trusted as it's a widely used tool build by a company that specializes in security
+trufflehog = "latest"  # Trusted as it's a widely used tool build by a company that specializes in security
 uv = "latest"
 prek = "latest"
 "pipx:mypy" = "latest"
@@ -10,8 +10,8 @@ bun = "latest"
 taplo = "latest"
 
 [env]
-MISE_NPM_PACKAGE_MANAGER = "bun"  # Use bun instead of npm for faster installs
-DO_NOT_TRACK = "1" # Disable tracking for that respect this variable
+MISE_NPM_PACKAGE_MANAGER = "bun" # Use bun instead of npm for faster installs
+DO_NOT_TRACK = "1"               # Disable tracking for that respect this variable
 
 [settings]
 npm.package_manager = "bun"
@@ -76,4 +76,3 @@ run = "uv run pytest"
 [tasks.test-all]
 description = "Run all tests including guarded ones (same for now to be added to later)"
 run = "uv run pytest"
-
