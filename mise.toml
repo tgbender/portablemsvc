@@ -66,7 +66,9 @@ run = "uv run mypy ."
 
 [tasks.pyright-check]
 description = "Run pyright type checks"
-run = "bunx pyright"
+dir = "{{ config_root }}"                                                                  # Directory containing mise.toml
+run = "bunx pyright --pythonpath \"{{ config_root }}/.venv/bin/python\" ."
+run_windows = "bunx pyright --pythonpath \"{{ config_root }}/.venv/Scripts/python.exe\" ."
 
 [tasks.prettier-format]
 description = "Format non-Python files (md, toml, json, yaml)"
