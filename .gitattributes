@@ -1,0 +1,342 @@
+#
+# Git Line Ending and File Type Configuration (.gitattributes)
+#
+# This file sets consistent line endings and explicitly marks binary files
+# to ensure consistent behavior across different operating systems and tools.
+#
+# Contents:
+# 1. Global Defaults: Automatic text/binary detection, and LF line endings for text.
+# 2. Universal Binary Files: Explicitly mark common binary formats.
+# 3. Windows-Specific Line Endings: Override to CRLF for certain Windows files.
+# 4. Explicit LF Line Endings: Reinforce LF for specific text file types.
+# 5. Other File Type / Behavior Attributes (e.g., diff, merge, export-ignore, etc.)
+#
+
+# ==============================================================================
+# SECTION 1: GLOBAL DEFAULTS
+# ==============================================================================
+# For all files:
+# - `text=auto`: Git will intelligently guess if a file is text or binary.
+# - `eol=lf`: For files identified as text, enforce LF line endings in the repository.
+#             On checkout, Git will convert to native line endings for text files
+#             unless explicit 'text' or 'eol' attributes prevent it.
+#             This means on Windows, Git typically converts LF to CRLF by default
+#             on checkout if 'core.autocrlf' is set to true (which is common).
+#             However, with 'eol=lf' set, Git will ensure the file is always
+#             stored as LF in the repo, and on checkout it will remain LF
+#             even on Windows. This is generally preferred for consistency.
+* text=auto eol=lf
+
+
+# ==============================================================================
+# SECTION 2: UNIVERSAL BINARY FILES (Explicitly marked as binary)
+# ==============================================================================
+# Files marked as `binary` will:
+# - Be stored verbatim in Git without line ending conversions.
+# - Not show textual diffs (Git will typically report them as "Binary files differ").
+# - Not be subject to `text=auto` or `eol` settings.
+#
+# Grouped by type for readability. Add or remove as needed for your project.
+
+# --- Image Files ---
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.bmp binary
+*.tiff binary
+*.tif binary
+*.ico binary
+*.cur binary
+*.ani binary
+*.svgz binary
+*.webp binary
+*.heic binary
+
+# --- Audio Files ---
+*.mp3 binary
+*.m4a binary
+*.wav binary
+*.ogg binary
+*.flac binary
+*.aac binary
+*.wma binary
+*.opus binary
+
+# --- Video Files ---
+*.mp4 binary
+*.mkv binary
+*.avi binary
+*.mov binary
+*.wmv binary
+*.flv binary
+*.webm binary
+*.ts binary
+*.mpeg binary
+
+# --- Font Files ---
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+
+# --- Archive and Compressed Files ---
+*.zip binary
+*.tar binary
+*.gz binary
+*.bz2 binary
+*.xz binary
+*.7z binary
+*.rar binary
+*.tgz binary
+*.tbz2 binary
+*.txz binary
+*.zst binary
+*.lz binary
+*.lzma binary
+*.lzo binary
+*.jar binary
+*.war binary
+*.ear binary
+*.apk binary
+*.ipa binary
+*.xpi binary
+*.crx binary
+*.oxt binary
+*.unitypackage binary
+*.dmg binary
+*.iso binary
+*.wim binary
+
+# --- Document and Presentation Files (Office, PDF, etc.) ---
+*.pdf binary
+*.doc binary
+*.docx binary
+*.xls binary
+*.xlsx binary
+*.ppt binary
+*.pptx binary
+*.odt binary
+*.ods binary
+*.odp binary
+*.abw binary
+*.zabw binary
+*.pages binary
+*.key binary
+*.numbers binary
+*.rtf binary
+*.epub binary
+*.mobi binary
+*.azw binary
+*.azw3 binary
+*.chm binary
+
+# --- Executables, Libraries, and Compiled Objects ---
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.obj binary
+*.o binary
+*.a binary
+*.lib binary
+*.com binary
+*.msi binary
+*.deb binary
+*.rpm binary
+*.app binary
+*.wasm binary
+*.class binary
+*.pyc binary
+*.pyo binary
+*.pyd binary
+*.rbc binary
+*.elc binary
+*.hi binary
+*.out binary
+*.pdb binary
+
+# --- Disk Images, Virtual Machine, and Database Files ---
+*.img binary
+*.vhd binary
+*.vhdx binary
+*.qcow2 binary
+*.vmdk binary
+*.ova binary
+*.ovf binary
+*.vdi binary
+*.raw binary
+*.db binary
+*.sqlite binary
+*.sqlite3 binary
+*.db3 binary
+*.fdb binary
+*.mdb binary
+*.accdb binary
+*.dbf binary
+*.mdf binary
+*.ldf binary
+*.ibd binary
+*.myi binary
+*.myd binary
+
+# --- Other Data and Cache Files ---
+*.dat binary
+*.bin binary
+*.h5 binary
+*.hdf5 binary
+*.nc binary
+*.mat binary
+*.npy binary
+*.npz binary
+*.parquet binary
+*.orc binary
+*.avro binary
+*.feather binary
+*.pkl binary
+*.pickle binary
+*.joblib binary
+*.msgpack binary
+*.pak binary
+*.bak binary
+*.tmp binary
+*.swp binary
+*.swo binary
+
+# --- Network Capture Files ---
+*.cap binary
+*.pcap binary
+*.pcapng binary
+
+# --- Apple/Xcode Specific Binary Files ---
+*.nib binary
+*.mom binary
+*.momd binary
+*.car binary
+*.mlmodel binary
+
+# --- Universal Scene Description (USD) files ---
+*.usd binary
+*.usdc binary
+*.usdz binary
+
+
+# ==============================================================================
+# SECTION 3: WINDOWS-SPECIFIC LINE ENDINGS (Explicitly CRLF)
+# ==============================================================================
+# These files are primarily used on Windows systems with tools that expect CRLF.
+*.ps1 eol=crlf
+*.psm1 eol=crlf
+*.psd1 eol=crlf
+*.bat eol=crlf
+*.cmd eol=crlf
+*.reg eol=crlf
+
+
+# ==============================================================================
+# SECTION 4: EXPLICIT LF LINE ENDINGS (For clarity and consistency)
+# ==============================================================================
+# While the global default `* eol=lf` covers most text files,
+# explicitly listing commonly edited text files can add clarity and reinforce
+# the LF standard for developers browsing this file.
+# This also helps prevent `text=auto` from misinterpreting a file.
+
+# --- Build System Files ---
+[Mm]akefile* eol=lf
+*.mk eol=lf
+# CMake files
+CMakeLists.txt eol=lf
+*.cmake eol=lf
+
+# --- Script and Source Code Files ---
+*.sh eol=lf
+*.py eol=lf
+*.pl eol=lf
+*.pm eol=lf
+*.rb eol=lf
+*.js eol=lf
+*.jsx eol=lf
+*.ts eol=lf
+*.tsx eol=lf
+*.go eol=lf
+*.rs eol=lf
+*.hs eol=lf
+*.php eol=lf
+*.swift eol=lf
+*.kt eol=lf
+*.cs eol=lf
+*.java eol=lf
+*.c eol=lf
+*.cpp eol=lf
+*.h eol=lf
+*.hpp eol=lf
+*.lua eol=lf
+*.dart eol=lf
+
+# --- Configuration & Markup Files ---
+*.json eol=lf
+*.xml eol=lf
+*.html eol=lf
+*.htm eol=lf
+*.css eol=lf
+*.scss eol=lf
+*.sass eol=lf
+*.less eol=lf
+*.md eol=lf
+*.markdown eol=lf
+*.rst eol=lf
+*.txt eol=lf
+*.yml eol=lf
+*.yaml eol=lf
+*.toml eol=lf
+*.ini eol=lf
+*.cfg eol=lf
+*.conf eol=lf
+*.env eol=lf
+*.properties eol=lf
+*.editorconfig eol=lf
+.mailmap eol=lf
+.gitignore eol=lf
+.gitattributes eol=lf
+.gitmodules eol=lf
+.git* text eol=lf
+Dockerfile* eol=lf
+*.dockerfile eol=lf
+*.csv eol=lf
+*.tsv eol=lf
+*.log eol=lf
+
+# --- Project/Solution Files (often XML, but explicit for clarity) ---
+# Visual Studio solution and project files, often used cross-platform.
+# While they might be created with CRLF by VS, storing them as LF in Git
+# is generally preferred for consistency.
+*.sln eol=lf
+*.csproj eol=lf
+*.vcxproj eol=lf
+*.vcxproj.filters eol=lf
+*.vcproj eol=lf
+*.rcproj eol=lf
+*.xcdatamodel eol=lf
+*.pbxproj eol=lf
+*.xcworkspace/contents.xcworkspacedata eol=lf
+*.xcscheme eol=lf
+*.xcsettings eol=lf
+*.xcconfig eol=lf
+*.entitlements eol=lf
+*.stringsdict eol=lf
+*.plist eol=lf
+
+
+# ==============================================================================
+# SECTION 5: OTHER ATTRIBUTES (e.g., diff, merge, export-ignore)
+# ==============================================================================
+# Add rules for specific diff strategies, merge drivers, or files to exclude
+# from exported archives (git archive) here.
+# Example:
+# Always take 'ours' in case of merge conflict for lock files
+# *.lock merge=ours
+# Treat minified JS as binary for diff/stats purposes, but still allow eol conversions
+# *.min.js -text
+# Exclude build directory from 'git archive'
+# build/ export-ignore
