@@ -1,10 +1,10 @@
 [project]
 name = "portablemsvc"
-version = "0.1.0"
+version = "0.2.0"
 description = "Installs Portable MSVC tools in user space"
 readme = "README.md"
 authors = [{ name = "Travis Bender" }]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
   "requests>=2.32.0,<3.0.0",
   "filelock>=3.0.0,<4.0.0",
@@ -44,4 +44,8 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 
 [project.optional-dependencies]
-dev = ["pytest>=8.3.5", "pytest-mock>=3.14.0"]
+dev = [
+    "pytest>=9.0.0,<10.0.0",
+    "pytest-mock>=3.14.0,<4.0.0",
+    "mypy>=1.19.1,<2.0.0",
+]

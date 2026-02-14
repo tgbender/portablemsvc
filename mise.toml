@@ -3,7 +3,6 @@
 trufflehog = "latest"  # Trusted as it's a widely used tool build by a company that specializes in security
 uv = "latest"
 prek = "latest"
-"pipx:mypy" = "latest"
 ruff = "latest"
 bun = "latest"
 taplo = "latest"
@@ -63,7 +62,7 @@ run = "ruff format ."
 
 [tasks.mypy]
 description = "Run mypy type checks"
-run = "mypy ."
+run = "uv run mypy ."
 
 [tasks.pyright-check]
 description = "Run pyright type checks"
