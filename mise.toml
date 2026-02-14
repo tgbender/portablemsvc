@@ -1,6 +1,6 @@
 [tools]
 # Using latest for tools. use a mise lockfile for reproducibility.
-trufflehog = "latest"  # Trusted as it's a widely used tool build by a company that specializes in security
+trufflehog = "latest" # Trusted as it's a widely used tool build by a company that specializes in security
 uv = "latest"
 prek = "latest"
 ruff = "latest"

@@ -45,7 +45,7 @@ python_files = "test_*.py"
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=9.0.0,<10.0.0",
-    "pytest-mock>=3.14.0,<4.0.0",
-    "mypy>=1.19.1,<2.0.0",
+  "pytest>=9.0.0,<10.0.0",
+  "pytest-mock>=3.14.0,<4.0.0",
+  "mypy>=1.19.1,<2.0.0",
 ]
