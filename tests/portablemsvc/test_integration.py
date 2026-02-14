@@ -1,7 +1,7 @@
-
 import pytest
 from pathlib import Path
 from portablemsvc.controller import install_msvc
+
 
 @pytest.mark.integration
 def test_full_msvc_zip_extract(tmp_path):
@@ -12,7 +12,7 @@ def test_full_msvc_zip_extract(tmp_path):
         targets=["x64"],
         channel="release",
         accept_license=True,
-        cache=False
+        cache=False,
     )
 
     # confirm the version keys were returned

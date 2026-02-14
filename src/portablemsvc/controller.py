@@ -2,21 +2,21 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .config              import CACHE_DIR, DATA_DIR, DEFAULT_HOST, DEFAULT_TARGET
-from .registry_helpers    import register_toolchain
-from .manifest            import get_vs_manifest
-from .parse_manifest      import parse_vs_manifest
-from .download_manifest   import download_manifest_files
-from .parse_msi           import parse_msi_for_cabs
-from .download            import download_files
-from .extract             import extract_package_files
-from .install             import install_msvc_components
-from .install_status      import (
+from .config import CACHE_DIR, DATA_DIR, DEFAULT_HOST, DEFAULT_TARGET
+from .registry_helpers import register_toolchain
+from .manifest import get_vs_manifest
+from .parse_manifest import parse_vs_manifest
+from .download_manifest import download_manifest_files
+from .parse_msi import parse_msi_for_cabs
+from .download import download_files
+from .extract import extract_package_files
+from .install import install_msvc_components
+from .install_status import (
     is_version_installed,
     save_installed_version,
     get_installed_versions,
 )
-from .install             import _generate_env_spec, _write_activation_scripts
+from .install import _generate_env_spec, _write_activation_scripts
 
 logger = logging.getLogger(__name__)
 
@@ -24,23 +24,21 @@ __all__ = ["get_available_versions", "install_msvc"]
 
 
 def get_available_versions(
-    *,
-    channel: str = "release",
-    cache: bool = True
+    *, channel: str = "release", cache: bool = True
 ) -> Dict[str, List[str]]:
     """
     Return dict with 'msvc' and 'sdk' listing the available versions
     for the given channel.
     """
     vs_manifest = get_vs_manifest(channel=channel, cache=cache)
-    parsed      = parse_vs_manifest(
+    parsed = parse_vs_manifest(
         vs_manifest,
         host=DEFAULT_HOST,
         targets=[DEFAULT_TARGET],
     )
     return {
         "msvc": sorted(parsed["msvc_versions"].keys()),
-        "sdk":  sorted(parsed["sdk_versions"].keys()),
+        "sdk": sorted(parsed["sdk_versions"].keys()),
     }
 
 
@@ -49,7 +47,7 @@ def install_msvc(
     host: str = DEFAULT_HOST,
     targets: Optional[List[str]] = None,
     msvc_version: Optional[str] = None,
-    sdk_version: Optional[str]  = None,
+    sdk_version: Optional[str] = None,
     channel: str = "release",
     cache: bool = True,
     force: bool = False,
@@ -75,7 +73,7 @@ def install_msvc(
 
     # 1) fetch & parse manifest so we know the actual full versions
     vs_manifest = get_vs_manifest(channel=channel, cache=cache)
-    parsed      = parse_vs_manifest(
+    parsed = parse_vs_manifest(
         vs_manifest,
         host=host,
         targets=targets,
@@ -86,7 +84,7 @@ def install_msvc(
     # 2) skip if that exact full MSVC+SDK is already installed
     if not force:
         sel_msvc = parsed["selected_msvc"]
-        sel_sdk  = parsed["selected_sdk"]
+        sel_sdk = parsed["selected_sdk"]
         existing_id = is_version_installed(
             sel_msvc["full_version"],
             sel_sdk["version"],
@@ -106,7 +104,7 @@ def install_msvc(
     files_map = download_manifest_files(parsed, cache_dir=Path(CACHE_DIR))
 
     # 4) scan MSIs for CABS & download those too
-    sdk_info     = parsed["selected_sdk"]["package_info"]
+    sdk_info = parsed["selected_sdk"]["package_info"]
     cab_payloads = parse_msi_for_cabs(files_map, sdk_info)
     cab_downloads = download_files(cab_payloads, cache_dir=Path(CACHE_DIR))
 
@@ -114,7 +112,7 @@ def install_msvc(
 
     # 5) extract into final output_dir
     msvc_full = parsed["selected_msvc"]["full_version"]
-    sdk_ver   = parsed["selected_sdk"]["version"]
+    sdk_ver = parsed["selected_sdk"]["version"]
     if output_dir is None:
         output_dir = Path(DATA_DIR) / f"msvc-{msvc_full}_sdk-{sdk_ver}"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -131,7 +129,6 @@ def install_msvc(
         manifest_msvc_version=msvc_full,
         sdk_manifest_version=sdk_ver,
     )
-
 
     # emit env.json so registry_helpers and activation scripts know exactly what to set
     spec = _generate_env_spec(

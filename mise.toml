@@ -30,11 +30,11 @@ run = "trufflehog git file://. --since-commit=HEAD~1 --no-verification --no-upda
 [tasks.format]
 #aliases = ["fix"]
 description = "Run all auto-fixes and formatting"
-depends = ["ruff-fix", "ruff-format", "prettier-format"]
+depends = ["ruff-fix", "ruff-format", "prettier-format", "taplo-format"]
 
 [tasks.lint]
 description = "Run all linters/type checks"
-depends = ["ruff-check", "mypy", "prettier-check"]
+depends = ["ruff-check", "mypy", "prettier-check", "taplo-check"]
 
 [tasks.ruff-check]
 description = "Check code with ruff"

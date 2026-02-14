@@ -1,12 +1,24 @@
 from pathlib import Path
 from typing import Dict, Optional
-from winregenv import RegistryRoot, RegistryValueNotFoundError, RegistryKeyNotFoundError, RegistryError
-from winregenv import REG_SZ, REG_DWORD, REG_EXPAND_SZ, expand_environment_strings, broadcast_setting_change
+from winregenv import (
+    RegistryRoot,
+    RegistryValueNotFoundError,
+    RegistryKeyNotFoundError,
+    RegistryError,
+)
+from winregenv import (
+    REG_SZ,
+    REG_DWORD,
+    REG_EXPAND_SZ,
+    expand_environment_strings,
+    broadcast_setting_change,
+)
 
 # new imports for JSON state + locking
 import json
 from filelock import FileLock
 from .config import CONFIG_DIR
+
 # for our backup routine
 import datetime
 import logging
@@ -17,6 +29,7 @@ from .config import CONFIG_DIR
 
 # Initialize the registry root for HKEY_CURRENT_USER
 hkcu = RegistryRoot("HKCU")
+
 
 def _backup_path(var_name: str = "Path") -> None:
     """
@@ -34,6 +47,7 @@ def _backup_path(var_name: str = "Path") -> None:
     out_file.write_text(raw, encoding="utf-8")
     logger.info(f"Backed up {var_name} to {out_file}")
 
+
 def get_env_var(name: str) -> Optional[str]:
     """Get an environment variable's value."""
     try:
@@ -41,12 +55,14 @@ def get_env_var(name: str) -> Optional[str]:
     except RegistryValueNotFoundError:
         return None
 
+
 def set_env_var(name: str, value: str) -> None:
     """Set an environment variable."""
     try:
         hkcu.put_registry_value("Environment", name, value, value_type=REG_SZ)
     except RegistryError as e:
         raise RuntimeError(f"Failed to set registry value: {e}")
+
 
 def get_path(var_name: str = "Path") -> str:
     """Get the current PATH value."""
@@ -56,6 +72,7 @@ def get_path(var_name: str = "Path") -> str:
     except RegistryValueNotFoundError:
         return ""
 
+
 def set_path(new_path: str, var_name: str = "Path") -> None:
     """Set a new PATH value."""
     try:
@@ -63,17 +80,19 @@ def set_path(new_path: str, var_name: str = "Path") -> None:
     except RegistryError as e:
         raise RuntimeError(f"Failed to set registry value: {e}")
 
+
 def append_to_path(value: str, var_name: str = "Path") -> None:
     """Append a new directory to PATH."""
     current_path = get_path(var_name)
     if not current_path:
         new_path = value
     else:
-        if value not in current_path.split(';'):
+        if value not in current_path.split(";"):
             new_path = f"{current_path};{value}"
         else:
             new_path = current_path
     set_path(new_path, var_name)
+
 
 def replace_in_path(find: str, replace: str) -> bool:
     """Replace text in PATH."""
@@ -84,6 +103,7 @@ def replace_in_path(find: str, replace: str) -> bool:
     set_path(new_path)
     return True
 
+
 def get_all_env_vars() -> Dict[str, str]:
     """Get all environment variables from HKCU."""
     try:
@@ -91,6 +111,7 @@ def get_all_env_vars() -> Dict[str, str]:
         return {v.name: v.data for v in values}
     except RegistryKeyNotFoundError:
         return {}
+
 
 def upsert_path_entry(new_dir: str, marker: str) -> None:
     """
@@ -103,11 +124,7 @@ def upsert_path_entry(new_dir: str, marker: str) -> None:
     expanded = [expand_environment_strings(e) for e in entries]
     # Find index where marker exists
     idx = next(
-        (
-            i
-            for i, e in enumerate(expanded)
-            if (Path(e) / marker).exists()
-        ),
+        (i for i, e in enumerate(expanded) if (Path(e) / marker).exists()),
         None,
     )
     if idx is not None:
@@ -117,17 +134,20 @@ def upsert_path_entry(new_dir: str, marker: str) -> None:
     # Write the updated PATH back to the registry
     set_path(";".join(entries))
 
+
 # ----------------------------------------------------------------------
 # JSON-backed registration state (so we know exactly what to remove later)
 # ----------------------------------------------------------------------
 _STATE_FILE = Path(CONFIG_DIR) / "registry_state.json"
-_LOCK_FILE  = _STATE_FILE.with_suffix(".lock")
+_LOCK_FILE = _STATE_FILE.with_suffix(".lock")
 _LOCK_TIMEOUT = 60  # seconds
+
 
 def _load_state() -> Dict[str, str]:
     if _STATE_FILE.exists():
         return json.loads(_STATE_FILE.read_text(encoding="utf-8"))
     return {"registered": {}}
+
 
 def _save_state(state: Dict[str, str]) -> None:
     # atomic write
@@ -160,15 +180,13 @@ def register_toolchain(install_id: str, install_root: Path) -> None:
                 raw = ""
             parts = [p for p in raw.split(";") if p and p not in entries]
             new_val = ";".join(entries + parts)
-            hkcu.put_registry_value("Environment", var,
-                                    new_val,
-                                    value_type=REG_EXPAND_SZ)
+            hkcu.put_registry_value(
+                "Environment", var, new_val, value_type=REG_EXPAND_SZ
+            )
         else:
             # scalar var → overwrite entirely
             new_val = str(entries)
-            hkcu.put_registry_value("Environment", var,
-                                    new_val,
-                                    value_type=REG_SZ)
+            hkcu.put_registry_value("Environment", var, new_val, value_type=REG_SZ)
 
     # notify all processes once
     broadcast_setting_change("Environment")
@@ -177,7 +195,9 @@ def register_toolchain(install_id: str, install_root: Path) -> None:
     lock = FileLock(str(_LOCK_FILE), timeout=_LOCK_TIMEOUT)
     with lock:
         state = _load_state()
-        state.setdefault("registered", {})[install_id] = str(Path(install_root).resolve())
+        state.setdefault("registered", {})[install_id] = str(
+            Path(install_root).resolve()
+        )
         # mark this one as the “current” registration
         state["current"] = install_id
         _save_state(state)
@@ -214,7 +234,9 @@ def deregister_toolchain(install_id: str) -> None:
         new_val = ";".join(parts)
         if parts:
             # update with remaining entries
-            hkcu.put_registry_value("Environment", var, new_val, value_type=REG_EXPAND_SZ)
+            hkcu.put_registry_value(
+                "Environment", var, new_val, value_type=REG_EXPAND_SZ
+            )
         else:
             # nothing left → delete the registry value entirely
             try:

@@ -1,10 +1,10 @@
-import re
 import logging
 
 from pathlib import Path
 from typing import List, Dict, Any
 
 logger = logging.getLogger(__name__)
+
 
 def extract_cab_names(data: bytes) -> List[str]:
     """Return embedded .cab filenames found in MSI binary data using original script approach."""
@@ -15,19 +15,20 @@ def extract_cab_names(data: bytes) -> List[str]:
         if index < 0:
             break
         try:
-            cab_name = data[index - 32:index + 4].decode('ascii')
+            cab_name = data[index - 32 : index + 4].decode("ascii")
             names.append(cab_name)
         except UnicodeDecodeError:
             pass
     return names
 
+
 def get_msi_cab_files(path: Path) -> List[str]:
     """Read an MSI file and return embedded .cab filenames."""
     return extract_cab_names(path.read_bytes())
 
+
 def parse_msi_for_cabs(
-    files_map: Dict[str, Path],
-    sdk_pkg_info: Dict[str, Any]
+    files_map: Dict[str, Path], sdk_pkg_info: Dict[str, Any]
 ) -> Dict[str, Dict[str, str]]:
     """
     Scan downloaded .msi files for embedded .cab names,
@@ -38,9 +39,7 @@ def parse_msi_for_cabs(
 
     # Create lookup of payloads by filename (case-insensitive)
     payload_lookup = {
-        Path(p["fileName"]).name.lower(): p
-        for p in payloads
-        if "fileName" in p
+        Path(p["fileName"]).name.lower(): p for p in payloads if "fileName" in p
     }
 
     for fname, path in files_map.items():
@@ -54,7 +53,7 @@ def parse_msi_for_cabs(
                 cab_payloads[cab_name] = {
                     "url": match["url"],
                     "hash": match["sha256"],
-                    "name": cab_name
+                    "name": cab_name,
                 }
             else:
                 # Skip logging for known non-critical CABs

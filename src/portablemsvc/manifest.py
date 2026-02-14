@@ -1,4 +1,4 @@
-#manifest.py setup
+# manifest.py setup
 import requests
 import json
 from pathlib import Path
@@ -18,41 +18,44 @@ from .config import (
     MANIFEST_REQUEST_TIMEOUT,
 )
 
-#Make the public interface exportable
-__all__ = ['get_vs_manifest']
+# Make the public interface exportable
+__all__ = ["get_vs_manifest"]
+
 
 def _download_channel_manifest(
     *,
-    channel : str = 'release',
-    cache : bool = True,
-    cache_dir : str = CACHE_DIR,
-    cache_ttl : int = MANIFEST_CACHE_TTL
-    ):
-    #Pick the right channel
-    if channel == 'preview':
+    channel: str = "release",
+    cache: bool = True,
+    cache_dir: str = CACHE_DIR,
+    cache_ttl: int = MANIFEST_CACHE_TTL,
+):
+    # Pick the right channel
+    if channel == "preview":
         manifest_fetch_url = MANIFEST_PREVIEW_URL
         cache_path = Path(cache_dir) / "preview_channel_manifest.json"
         cache_meta_path = Path(cache_dir) / "preview_channel_manifest_meta.json"
-    elif channel == 'release':
+    elif channel == "release":
         manifest_fetch_url = MANIFEST_URL
         cache_path = Path(cache_dir) / "release_channel_manifest.json"
         cache_meta_path = Path(cache_dir) / "release_channel_manifest_meta.json"
     else:
-        raise ValueError(f'Unknown channel: {channel}')
+        raise ValueError(f"Unknown channel: {channel}")
 
-    #Check if the cached manifest file exists. If it does, and isn't older than the TTL, then load the json from the file
+    # Check if the cached manifest file exists. If it does, and isn't older than the TTL, then load the json from the file
     if cache and cache_path.exists() and cache_meta_path.exists():
-        with open(cache_meta_path, 'r') as f:
+        with open(cache_meta_path, "r") as f:
             cache_meta = json.load(f)
 
-        if time.time() - cache_meta['timestamp'] < cache_ttl:
-            with open(cache_path, 'r') as f:
+        if time.time() - cache_meta["timestamp"] < cache_ttl:
+            with open(cache_path, "r") as f:
                 return json.load(f)
 
     # Grabs the manifest data
     try:
         logger.debug(f"Fetching manifest from {manifest_fetch_url}")
-        manifest_response = requests.get(manifest_fetch_url,timeout=MANIFEST_REQUEST_TIMEOUT)
+        manifest_response = requests.get(
+            manifest_fetch_url, timeout=MANIFEST_REQUEST_TIMEOUT
+        )
         manifest_response.raise_for_status()  # raise an error if the request didn't succeed
 
         manifest_json = json.loads(manifest_response.text)
@@ -61,14 +64,11 @@ def _download_channel_manifest(
         # Write the manifest to cache with metadata
         if cache:
             try:
-                with open(cache_path, 'w') as f:
+                with open(cache_path, "w") as f:
                     json.dump(manifest_json, f)
 
-                with open(cache_meta_path, 'w') as f:
-                    json.dump({
-                        'timestamp': time.time(),
-                        'hash': manifest_hash
-                    }, f)
+                with open(cache_meta_path, "w") as f:
+                    json.dump({"timestamp": time.time(), "hash": manifest_hash}, f)
                 logger.debug("Manifest cached successfully")
             except Exception as e:
                 logger.warning(f"Failed to cache manifest: {e}")
@@ -81,23 +81,20 @@ def _download_channel_manifest(
         # If we have a cache (even if expired), use it as fallback
         if cache_path.exists():
             logger.warning("Using expired cache as fallback")
-            with open(cache_path, 'r') as f:
+            with open(cache_path, "r") as f:
                 return json.load(f)
 
         # If all else fails, raise a standard exception
         raise IOError(f"Failed to download manifest: {e}") from e
 
 
-def _parse_channel_manifest(
-    channel_manifest: dict,
-    channel: str ='release'
-    ) -> str:
-    if channel == 'preview':
+def _parse_channel_manifest(channel_manifest: dict, channel: str = "release") -> str:
+    if channel == "preview":
         item_name = PREVIEW_CHANNEL_MANIFEST_NAME
-    elif channel == 'release':
+    elif channel == "release":
         item_name = RELEASE_CHANNEL_MANIFEST_NAME
     else:
-        raise ValueError(f'Unknown channel: {channel}')
+        raise ValueError(f"Unknown channel: {channel}")
 
     try:
         # Find the item with the matching id
@@ -108,7 +105,9 @@ def _parse_channel_manifest(
                 break
 
         if vs is None:
-            raise ValueError(f"Could not find item with id '{item_name}' in channel manifest")
+            raise ValueError(
+                f"Could not find item with id '{item_name}' in channel manifest"
+            )
 
         vs_manifest_url = vs["payloads"][0]["url"]
         return vs_manifest_url
@@ -117,13 +116,14 @@ def _parse_channel_manifest(
         logger.error(f"Failed to parse channel manifest: {e}")
         raise ValueError(f"Invalid channel manifest structure: {e}") from e
 
+
 def _download_vs_manifest(
-    vs_manifest_url : str,
+    vs_manifest_url: str,
     *,
-    cache : bool = True,
-    cache_dir : str = CACHE_DIR,
-    cache_ttl : int = MANIFEST_CACHE_TTL
-    ) -> dict:
+    cache: bool = True,
+    cache_dir: str = CACHE_DIR,
+    cache_ttl: int = MANIFEST_CACHE_TTL,
+) -> dict:
     """
     Download the Visual Studio manifest from the provided URL.
 
@@ -143,18 +143,20 @@ def _download_vs_manifest(
 
     # Check if the cached manifest file exists and isn't older than the TTL
     if cache and cache_path.exists() and cache_meta_path.exists():
-        with open(cache_meta_path, 'r') as f:
+        with open(cache_meta_path, "r") as f:
             cache_meta = json.load(f)
 
-        if time.time() - cache_meta['timestamp'] < cache_ttl:
+        if time.time() - cache_meta["timestamp"] < cache_ttl:
             logger.debug(f"Using cached VS manifest from {cache_path}")
-            with open(cache_path, 'r') as f:
+            with open(cache_path, "r") as f:
                 return json.load(f)
 
     # Download the VS manifest
     try:
         logger.debug(f"Fetching VS manifest from {vs_manifest_url}")
-        manifest_response = requests.get(vs_manifest_url,timeout=MANIFEST_REQUEST_TIMEOUT)
+        manifest_response = requests.get(
+            vs_manifest_url, timeout=MANIFEST_REQUEST_TIMEOUT
+        )
         manifest_response.raise_for_status()  # raise an error if the request didn't succeed
 
         vs_manifest_json = json.loads(manifest_response.text)
@@ -163,15 +165,18 @@ def _download_vs_manifest(
         # Write the manifest to cache with metadata
         if cache:
             try:
-                with open(cache_path, 'w') as f:
+                with open(cache_path, "w") as f:
                     json.dump(vs_manifest_json, f)
 
-                with open(cache_meta_path, 'w') as f:
-                    json.dump({
-                        'timestamp': time.time(),
-                        'hash': manifest_hash,
-                        'url': vs_manifest_url
-                    }, f)
+                with open(cache_meta_path, "w") as f:
+                    json.dump(
+                        {
+                            "timestamp": time.time(),
+                            "hash": manifest_hash,
+                            "url": vs_manifest_url,
+                        },
+                        f,
+                    )
                 logger.debug("VS manifest cached successfully")
             except Exception as e:
                 logger.warning(f"Failed to cache VS manifest: {e}")
@@ -184,21 +189,20 @@ def _download_vs_manifest(
         # If we have a cache (even if expired), use it as fallback
         if cache and cache_path.exists():
             logger.warning("Using expired VS manifest cache as fallback")
-            with open(cache_path, 'r') as f:
+            with open(cache_path, "r") as f:
                 return json.load(f)
 
         # If all else fails, raise a standard exception
         raise IOError(f"Failed to download VS manifest: {e}") from e
 
 
-
 def get_vs_manifest(
-        *,
-        channel : str = 'release',
-        cache : bool = True,
-        cache_dir : str = CACHE_DIR,
-        cache_ttl : int = MANIFEST_CACHE_TTL
-    ) -> dict:
+    *,
+    channel: str = "release",
+    cache: bool = True,
+    cache_dir: str = CACHE_DIR,
+    cache_ttl: int = MANIFEST_CACHE_TTL,
+) -> dict:
     """
     Get the Visual Studio manifest for the specified channel.
 
@@ -218,15 +222,15 @@ def get_vs_manifest(
         IOError: If there's a network error and no valid cache exists.
     """
     # Step 0: Validate inputs
-    if channel not in ['release', 'preview']:
-        raise ValueError(f'Unknown channel: {channel}')
+    if channel not in ["release", "preview"]:
+        raise ValueError(f"Unknown channel: {channel}")
     if not isinstance(cache, bool):
         raise TypeError("cache parameter must be a boolean")
     if cache_ttl <= 0:
         raise ValueError("cache_ttl must be a positive integer")
     if cache:
         if not cache_dir:
-            raise ValueError('cache_dir must be specified if cache is enabled')
+            raise ValueError("cache_dir must be specified if cache is enabled")
         try:
             Path(cache_dir).mkdir(parents=True, exist_ok=True)
         except Exception as e:
@@ -234,10 +238,7 @@ def get_vs_manifest(
 
     # Step 1: Download the channel manifest
     channel_manifest = _download_channel_manifest(
-        channel=channel,
-        cache=cache,
-        cache_dir=cache_dir,
-        cache_ttl=cache_ttl
+        channel=channel, cache=cache, cache_dir=cache_dir, cache_ttl=cache_ttl
     )
 
     # Step 2: Parse the channel manifest to get the VS manifest URL
@@ -245,10 +246,7 @@ def get_vs_manifest(
 
     # Step 3: Download the VS manifest
     vs_manifest = _download_vs_manifest(
-        vs_manifest_url,
-        cache=cache,
-        cache_dir=cache_dir,
-        cache_ttl=cache_ttl
+        vs_manifest_url, cache=cache, cache_dir=cache_dir, cache_ttl=cache_ttl
     )
 
     return vs_manifest
@@ -256,22 +254,20 @@ def get_vs_manifest(
 
 def get_license_url(
     *,
-    channel: str = 'release',
+    channel: str = "release",
     cache: bool = True,
     cache_dir: str = CACHE_DIR,
-    cache_ttl: int = MANIFEST_CACHE_TTL
+    cache_ttl: int = MANIFEST_CACHE_TTL,
 ) -> str:
     """
     Return the URL of the BuildTools license for the given channel.
     """
-    chan = _download_channel_manifest(channel=channel,
-                                      cache=cache,
-                                      cache_dir=cache_dir,
-                                      cache_ttl=cache_ttl)
+    chan = _download_channel_manifest(
+        channel=channel, cache=cache, cache_dir=cache_dir, cache_ttl=cache_ttl
+    )
     for item in chan.get("channelItems", []):
         if item.get("id") == "Microsoft.VisualStudio.Product.BuildTools":
             for res in item.get("localizedResources", []):
                 if res.get("language", "").lower() == "en-us":
                     return res["license"]
     raise ValueError("Could not find BuildTools license in channel manifest")
-

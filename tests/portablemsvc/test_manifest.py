@@ -1,6 +1,7 @@
 import pytest
 from portablemsvc.manifest import get_vs_manifest
 
+
 def test_get_vs_manifest_basic():
     """Test that get_vs_manifest runs to completion with default arguments."""
     try:

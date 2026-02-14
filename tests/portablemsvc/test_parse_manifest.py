@@ -10,11 +10,7 @@ def test_parse_vs_manifest_basic():
         manifest = get_vs_manifest()
 
         # Then parse it with some basic parameters
-        result = parse_vs_manifest(
-            manifest,
-            host="x64",
-            targets=["x64"]
-        )
+        result = parse_vs_manifest(manifest, host="x64", targets=["x64"])
 
         # Check that we got a valid result
         assert result is not None

@@ -2,11 +2,11 @@ from plumbum.cli import Application, SwitchAttr, Flag
 import logging, sys
 from pathlib import Path
 
-from .config      import DEFAULT_HOST, ALL_HOSTS, DEFAULT_TARGET, ALL_TARGETS
-from .controller  import get_available_versions, install_msvc
-from .manifest    import get_license_url, get_vs_manifest
+from .config import DEFAULT_HOST, ALL_HOSTS, DEFAULT_TARGET, ALL_TARGETS
+from .controller import get_available_versions, install_msvc
+from .manifest import get_license_url, get_vs_manifest
 from .parse_manifest import parse_vs_manifest
-from .install_status   import get_installed_versions
+from .install_status import get_installed_versions
 
 # setup a sane default logger
 logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
@@ -15,17 +15,18 @@ logger = logging.getLogger(__name__)
 
 class PortableMSVCApp(Application):
     """portable-msvc: manage, list and install MSVC toolchains."""
+
     PROG_NAME = "portablemsvc"
-    VERSION   = "0.1.0"
+    VERSION = "0.1.0"
 
     # global flags
     verbose = Flag("-v", "--verbose", help="Enable debug logging")
 
 
-
 @PortableMSVCApp.subcommand("list")
 class ListInstalled(Application):
     """List toolchains recorded in the status database."""
+
     PROG_NAME = "list"
 
     def main(self):
@@ -42,7 +43,7 @@ class ListInstalled(Application):
                 print(f"  MSVC (internal): {rec['msvc_internal_version']}")
             print(f"  SDK:        {rec.get('sdk_version', 'N/A')}")
             print(f"  Host:       {rec.get('host', 'N/A')}")
-            targets = rec.get('targets', [])
+            targets = rec.get("targets", [])
             print(f"  Targets:    {', '.join(targets) if targets else 'N/A'}")
             print(f"  Installed:  {rec.get('installed_at', 'N/A')}")
 
@@ -50,19 +51,24 @@ class ListInstalled(Application):
 @PortableMSVCApp.subcommand("show-versions")
 class ShowVersions(Application):
     """Show available MSVC and Windows SDK versions."""
+
     PROG_NAME = "show-versions"
 
-    channel  = SwitchAttr("--channel", str, default="release",
-                         help="Which channel to query (release|preview)")
+    channel = SwitchAttr(
+        "--channel",
+        str,
+        default="release",
+        help="Which channel to query (release|preview)",
+    )
     no_cache = Flag("--no-cache", help="Disable manifest cache")
-    full     = Flag("--full",     help="Show full MSVC x.y.z.w build versions")
+    full = Flag("--full", help="Show full MSVC x.y.z.w build versions")
 
     def main(self):
         cache = not self.no_cache
         if self.full:
             # re-parse to get raw full build strings
             vs_manifest = get_vs_manifest(channel=self.channel, cache=cache)
-            parsed      = parse_vs_manifest(
+            parsed = parse_vs_manifest(
                 vs_manifest,
                 host=DEFAULT_HOST,
                 targets=[DEFAULT_TARGET],
@@ -74,13 +80,13 @@ class ShowVersions(Application):
             print("MSVC full versions:", " ".join(full_versions))
             # Also show SDK versions in --full mode
             sdk_versions = sorted(parsed["sdk_versions"].keys())
-            print("SDK versions: ",      " ".join(sdk_versions))
+            print("SDK versions: ", " ".join(sdk_versions))
             return
 
         # default (major.minor) listing
         versions = get_available_versions(channel=self.channel, cache=cache)
         msvc_versions = sorted(versions["msvc"])
-        sdk_versions  = sorted(versions["sdk"])
+        sdk_versions = sorted(versions["sdk"])
         print("MSVC versions:", " ".join(msvc_versions))
         print("SDK versions: ", " ".join(sdk_versions))
 
@@ -88,25 +94,33 @@ class ShowVersions(Application):
 @PortableMSVCApp.subcommand("install")
 class Install(Application):
     """Install MSVC & Windows SDK into a portable layout."""
+
     PROG_NAME = "install"
 
     # selection
-    msvc_version   = SwitchAttr("--msvc-version", str, help="Force specific MSVC version")
-    sdk_version    = SwitchAttr("--sdk-version",  str, help="Force specific Windows SDK version")
-    channel        = SwitchAttr("--channel",      str, default="release",
-                                help="Which channel to install (release|preview)")
-    accept_license = Flag("--accept-license",    help="Automatically accept license")
+    msvc_version = SwitchAttr("--msvc-version", str, help="Force specific MSVC version")
+    sdk_version = SwitchAttr(
+        "--sdk-version", str, help="Force specific Windows SDK version"
+    )
+    channel = SwitchAttr(
+        "--channel",
+        str,
+        default="release",
+        help="Which channel to install (release|preview)",
+    )
+    accept_license = Flag("--accept-license", help="Automatically accept license")
 
     # cache only
     no_cache = Flag("--no-cache", help="Disable downloads cache")
 
     # architecture & output
-    host   = SwitchAttr("--host",   str, default=DEFAULT_HOST,
-                        help=f"Host arch ({','.join(ALL_HOSTS)})")
-    target = SwitchAttr("--target", str, list=True,
-                        help=f"Target archs ({','.join(ALL_TARGETS)})")
-    output = SwitchAttr("--output", str,
-                        help="Custom installation output directory")
+    host = SwitchAttr(
+        "--host", str, default=DEFAULT_HOST, help=f"Host arch ({','.join(ALL_HOSTS)})"
+    )
+    target = SwitchAttr(
+        "--target", str, list=True, help=f"Target archs ({','.join(ALL_TARGETS)})"
+    )
+    output = SwitchAttr("--output", str, help="Custom installation output directory")
 
     def main(self):
         # compute flags
@@ -150,15 +164,18 @@ class Install(Application):
         )
 
 
-
 @PortableMSVCApp.subcommand("register")
 class RegisterEnv(Application):
-    install_id = SwitchAttr("--id", str,
-                           help="ID of the installation to register (omit to pick highest MSVC version)")
+    install_id = SwitchAttr(
+        "--id",
+        str,
+        help="ID of the installation to register (omit to pick highest MSVC version)",
+    )
+
     def main(self):
         from .registry_helpers import register_toolchain
-        from .install_status   import get_installed_versions
-        from pathlib           import Path
+        from .install_status import get_installed_versions
+        from pathlib import Path
 
         installs = get_installed_versions()
         if not installs:
@@ -172,6 +189,7 @@ class RegisterEnv(Application):
                 ver = rec.get("msvc_version", "")
                 # "14.44.17.14" → (14, 44, 17, 14)
                 return tuple(int(p) for p in ver.split(".") if p.isdigit())
+
             install_id, _ = max(installs.items(), key=version_key)
 
         rec = installs.get(install_id)
@@ -184,12 +202,23 @@ class RegisterEnv(Application):
         register_toolchain(install_id, Path(install_root))
         print(f"Registered toolchain {install_id} into HKCU\\Environment.")
 
+
 @PortableMSVCApp.subcommand("deregister")
 class DeregisterEnv(Application):
-    install_id = SwitchAttr("--id", str, mandatory=False,
-                           help="ID of the installation to deregister (omit for current)")
+    install_id = SwitchAttr(
+        "--id",
+        str,
+        mandatory=False,
+        help="ID of the installation to deregister (omit for current)",
+    )
+
     def main(self):
-        from .registry_helpers import deregister_toolchain, _load_state, _LOCK_FILE, FileLock
+        from .registry_helpers import (
+            deregister_toolchain,
+            _load_state,
+            _LOCK_FILE,
+            FileLock,
+        )
 
         iid = self.install_id
         if not iid:
@@ -204,6 +233,6 @@ class DeregisterEnv(Application):
         deregister_toolchain(iid)
         print(f"Deregistered toolchain {iid} from HKCU\\Environment.")
 
+
 if __name__ == "__main__":
     PortableMSVCApp.run()
-

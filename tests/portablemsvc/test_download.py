@@ -34,9 +34,7 @@ def test_download_file_basic():
 
         # Now download the file
         data, path = download_file(
-            url=TEST_URL,
-            expected_hash=expected_hash,
-            original_name="favicon.ico"
+            url=TEST_URL, expected_hash=expected_hash, original_name="favicon.ico"
         )
 
         # Verify the download worked
@@ -62,7 +60,7 @@ def test_download_file_caching(temp_cache_dir):
         url=TEST_URL,
         expected_hash=expected_hash,
         original_name="favicon.ico",
-        cache_dir=temp_cache_dir
+        cache_dir=temp_cache_dir,
     )
 
     # Second download should use the cache
@@ -70,7 +68,7 @@ def test_download_file_caching(temp_cache_dir):
         url=TEST_URL,
         expected_hash=expected_hash,
         original_name="favicon.ico",
-        cache_dir=temp_cache_dir
+        cache_dir=temp_cache_dir,
     )
 
     # Paths should be the same
@@ -85,16 +83,8 @@ def test_download_files_batch():
     expected_hash = get_file_hash(TEST_URL)
 
     files_to_download = {
-        "file1": {
-            "url": TEST_URL,
-            "hash": expected_hash,
-            "name": "favicon1.ico"
-        },
-        "file2": {
-            "url": TEST_URL,
-            "hash": expected_hash,
-            "name": "favicon2.ico"
-        }
+        "file1": {"url": TEST_URL, "hash": expected_hash, "name": "favicon1.ico"},
+        "file2": {"url": TEST_URL, "hash": expected_hash, "name": "favicon2.ico"},
     }
 
     try:
