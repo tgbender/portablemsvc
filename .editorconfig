@@ -1,0 +1,20 @@
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+trim_trailing_whitespace = true
+
+[*.{bat,cmd}]
+end_of_line = crlf
+
+[*.{csv,tsv}]
+insert_final_newline = false
+trim_trailing_whitespace = false
+
+[*.{parquet,avro,orc,sqlite,db,pkl,pickle,npy,npz,h5,hdf5,arrow,feather,png,jpg,jpeg,gif,ico,svg,woff,woff2,eot,ttf,mp4,pdf,zip,gz,tar,bz2,zst,7z,rar}]
+charset = unset
+end_of_line = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset
+indent_style = unset
+indent_size = unset

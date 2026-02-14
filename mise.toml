@@ -1,0 +1,79 @@
+[tools]
+# Using latest for tools. use a mise lockfile for reproducibility.
+trufflehog = "latest" # Trusted as it's a widely used tool build by a company that specializes in security
+uv = "latest"
+prek = "latest"
+"pipx:mypy" = "latest"
+ruff = "latest"
+# Bun minimum release age is set in bunfig.toml.
+bun = "latest"
+taplo = "latest"
+
+[env]
+MISE_NPM_PACKAGE_MANAGER = "bun"  # Use bun instead of npm for faster installs
+DO_NOT_TRACK = "1" # Disable tracking for that respect this variable
+
+[settings]
+npm.package_manager = "bun"
+
+### SETUP TASKS
+[tasks.setup-hooks]
+description = "Install pre-commit hooks"
+run = "prek install"
+
+### PRE-COMMIT STUFF
+[tasks.trufflehog-scan]
+description = "Scan the git history for secrets using trufflehog. To be used in precommit. Network calls disabled"
+run = "trufflehog git file://. --since-commit=HEAD~1 --no-verification --no-update --fail"
+
+### LINTERS AND FORMATTERS
+[tasks.format]
+#aliases = ["fix"]
+description = "Run all auto-fixes and formatting"
+depends = ["ruff-fix", "ruff-format", "prettier-format"]
+
+[tasks.lint]
+description = "Run all linters/type checks"
+depends = ["ruff-check", "mypy", "prettier-check"]
+
+[tasks.ruff-check]
+description = "Check code with ruff"
+run = "ruff check ."
+
+[tasks.ruff-fix]
+description = "Auto-fix ruff lint violations"
+run = "ruff check --fix ."
+
+[tasks.ruff-format]
+description = "Format code with ruff"
+run = "ruff format ."
+
+[tasks.mypy]
+description = "Run mypy type checks"
+run = "mypy ."
+
+[tasks.prettier-format]
+description = "Format non-Python files (md, toml, json, yaml)"
+run = "bunx prettier --write '**/*.{md,json,yaml,yml}'"
+
+[tasks.prettier-check]
+description = "Check non-Python file formatting"
+run = "bunx prettier --check '**/*.{md,json,yaml,yml}'"
+
+[tasks.taplo-format]
+description = "Format TOML files"
+run = "taplo fmt **/*.toml"
+
+[tasks.taplo-check]
+description = "Check TOML file formatting"
+run = "taplo fmt --check **/*.toml"
+
+### TESTS
+[tasks.test]
+description = "Run main tests"
+run = "uv run pytest"
+
+[tasks.test-all]
+description = "Run all tests including guarded ones (same for now to be added to later)"
+run = "uv run pytest"
+
