@@ -268,7 +268,7 @@ def install_msvc_components(
     internal_sdk = detected_versions["sdk_version"]
     # Use manifest version if provided; record manifest vs internal SDK
     manifest_ver = manifest_msvc_version or internal_msvc
-    manifest_sdk = sdk_manifest_version
+    manifest_sdk = sdk_manifest_version  # noqa: F841 - reserved for lockfile output
     # Always use the detected internal SDK version for env.json and installation record
     sdk_ver = internal_sdk
     # Override locals for downstream steps

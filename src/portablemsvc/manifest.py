@@ -6,8 +6,6 @@ import hashlib
 import time
 import logging
 
-logger = logging.getLogger(__name__)
-
 from .config import (
     CACHE_DIR,
     MANIFEST_URL,
@@ -17,6 +15,8 @@ from .config import (
     MANIFEST_CACHE_TTL,
     MANIFEST_REQUEST_TIMEOUT,
 )
+
+logger = logging.getLogger(__name__)
 
 # Make the public interface exportable
 __all__ = ["get_vs_manifest"]

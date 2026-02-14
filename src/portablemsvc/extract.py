@@ -142,33 +142,3 @@ def extract_package_files(
         raise
 
     return results
-
-
-def extract_package_files_print(
-    files_map: Dict[str, Path],
-    output_dir: Path,
-    extract_msvc: bool = True,
-    extract_sdk: bool = True,
-) -> Dict[str, Set[Path]]:
-    """
-    Extract package files from their cached locations to the output directory.
-
-    Returns a dict with two keys:
-      - 'msvc': set of extracted paths from .zip packages
-      - 'sdk':  set of extracted paths (the .msi files that were expanded)
-    """
-    output_dir.mkdir(parents=True, exist_ok=True)
-    results = {"msvc": set(), "sdk": set()}
-
-    with _prepare_working_directory(Path(TEMP_DIR)) as workdir:
-        # 1) Link or copy all cached files into workdir
-        for orig_name, cached_path in files_map.items():
-            dst = workdir / orig_name
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            dst.write_bytes(cached_path.read_bytes())
-            # try:
-            #    os.link(cached_path, dst)
-            # except OSError:
-            #    dst.write_bytes(cached_path.read_bytes())
-
-            print(dst)

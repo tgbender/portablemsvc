@@ -1,4 +1,3 @@
-import os
 import sys
 
 if not sys.platform.startswith("win32"):
