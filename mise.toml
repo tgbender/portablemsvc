@@ -5,7 +5,6 @@ uv = "latest"
 prek = "latest"
 "pipx:mypy" = "latest"
 ruff = "latest"
-# Bun minimum release age is set in bunfig.toml.
 bun = "latest"
 taplo = "latest"
 

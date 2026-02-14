@@ -4,28 +4,28 @@
 
 ## Features
 
-- Fetch the latest (or specified) MSVC toolset and Windows SDK from the official Visual Studio release channel  
-- Download and extract ZIPs, VSIX, MSI, and embedded CABs via `msiexec` without UI  
-- Prune unneeded files (debug symbols, telemetry, etc.) to minimize disk usage  
-- Generate `env.json`, `activate.cmd`, and `activate.ps1` for easy environment setup  
-- Register/deregister toolchains in **HKCU\Environment**, with automatic PATH backup  
-- Maintain multiple portable installs side-by-side via a simple JSON database  
-- Plumbum-based CLI with subcommands for listing, installing, and managing toolchains  
+- Fetch the latest (or specified) MSVC toolset and Windows SDK from the official Visual Studio release channel
+- Download and extract ZIPs, VSIX, MSI, and embedded CABs via `msiexec` without UI
+- Prune unneeded files (debug symbols, telemetry, etc.) to minimize disk usage
+- Generate `env.json`, `activate.cmd`, and `activate.ps1` for easy environment setup
+- Register/deregister toolchains in **HKCU\Environment**, with automatic PATH backup
+- Maintain multiple portable installs side-by-side via a simple JSON database
+- Plumbum-based CLI with subcommands for listing, installing, and managing toolchains
 
 ## Requirements
 
-- **Windows 10+**  
-- **Python 3.12+**  
+- **Windows 10+**
+- **Python 3.12+**
   - May work on lower versions but not tested
-- `msiexec.exe` on PATH (standard on Windows)  
-- Required Python packages (install via `pip install .` or `pip install -r requirements.txt`):  
-  - `plumbum` (CLI framework)  
-  - `winregenv` (registry manipulation)  
-  - `filelock` (atomic file/registry locking)  
+- `msiexec.exe` on PATH (standard on Windows)
+- Required Python packages (install via `pip install .` or `pip install -r requirements.txt`):
+  - `plumbum` (CLI framework)
+  - `winregenv` (registry manipulation)
+  - `filelock` (atomic file/registry locking)
 
 ## Installation
 
-### Using UV (https://github.com/astral-sh/uv) *Recommended*
+### Using UV (https://github.com/astral-sh/uv) _Recommended_
 
 ```bat
 uv tool install git+https://github.com/tgbender/portablemsvc@main
@@ -49,11 +49,11 @@ Run `portablemsvc --help` to view global options and subcommands.
 
 ### Subcommands
 
-- `show-versions`  
-- `list`  
-- `install`  
-- `register`  
-- `deregister`  
+- `show-versions`
+- `list`
+- `install`
+- `register`
+- `deregister`
 
 #### Show Available Versions
 
@@ -86,27 +86,27 @@ portablemsvc list
 
 Displays for each install:
 
-- **ID**  
-- **Path**  
-- **MSVC (manifest)** version  
-- **MSVC (internal)** build folder version  
-- **SDK** version  
-- **Host & Targets**  
-- **Installed at** timestamp  
+- **ID**
+- **Path**
+- **MSVC (manifest)** version
+- **MSVC (internal)** build folder version
+- **SDK** version
+- **Host & Targets**
+- **Installed at** timestamp
 
 #### Register / Deregister
 
 - Register the toolchain into your user environment:
 
-    ```bat
-    portablemsvc register [--id <install_id>]
-    ```
+  ```bat
+  portablemsvc register [--id <install_id>]
+  ```
 
 - Deregister (restore original PATH):
 
-    ```bat
-    portablemsvc deregister [--id <install_id>]
-    ```
+  ```bat
+  portablemsvc deregister [--id <install_id>]
+  ```
 
 ## Example Workflow
 
@@ -151,10 +151,11 @@ Displays for each install:
 
 ## Contributing
 
-Contributions and issues are welcome!  
-- Run `flake8` and `pytest` to ensure style and tests pass  
-- Keep PRs focused on a single feature or bugfix  
-- Add tests for all new behavior  
+Contributions and issues are welcome!
+
+- Run `flake8` and `pytest` to ensure style and tests pass
+- Keep PRs focused on a single feature or bugfix
+- Add tests for all new behavior
 
 ## License
 
