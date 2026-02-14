@@ -15,6 +15,7 @@ DO_NOT_TRACK = "1"               # Disable tracking for that respect this variab
 
 [settings]
 npm.package_manager = "bun"
+windows_default_inline_shell_args = "powershell -NoProfile -Command"
 
 ### SETUP TASKS
 [tasks.setup-hooks]
@@ -54,11 +55,13 @@ run = "mypy ."
 
 [tasks.prettier-format]
 description = "Format non-Python files (md, toml, json, yaml)"
-run = "bunx prettier --write '**/*.{md,json,yaml,yml}'"
+run = "git ls-files '*.md' '*.json' '*.yaml' '*.yml' | bunx prettier --write '**/*.{md,json,yaml,yml}'"
+run_windows = "bunx prettier --write @(git ls-files '*.md' '*.json' '*.yaml' '*.yml')"
 
 [tasks.prettier-check]
 description = "Check non-Python file formatting"
-run = "bunx prettier --check '**/*.{md,json,yaml,yml}'"
+run = "git ls-files -z '*.md' '*.json' '*.yaml' '*.yml' | xargs -0 bunx prettier --check"
+run_windows = "bunx prettier --check @(git ls-files '*.md' '*.json' '*.yaml' '*.yml')"
 
 [tasks.taplo-format]
 description = "Format TOML files"
