@@ -542,7 +542,7 @@ def _write_activation_scripts(
         "here = pathlib.Path(__file__).parent.resolve()",
         "",
         "# load JSON spec",
-        f'spec_path = here / "env.json"',
+        'spec_path = here / "env.json"',
         "with open(spec_path) as f:",
         "    spec = json.load(f)",
         "",

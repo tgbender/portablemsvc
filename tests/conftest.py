@@ -1,18 +1,17 @@
 """Pytest configuration and fixtures."""
 
-import sys
 from pathlib import Path
-from types import ModuleType
+from typing import Any, Dict, Optional
 
 import pytest
 from plumbum import local
 
 
-# Session state for test installs
-state = ModuleType("install_state")
-state.normal_test_install = None
-state.lockfile_test_install = None
-sys.modules["install_state"] = state
+# Session state for test installs - use dict instead of dynamic module attributes
+install_state: Dict[str, Optional[Dict[str, Any]]] = {
+    "normal_test_install": None,
+    "lockfile_test_install": None,
+}
 
 
 def pytest_addoption(parser):
@@ -83,19 +82,19 @@ def system_install():
 @pytest.fixture(scope="session")
 def normal_test_install():
     """Session-scoped install from test_install_normal."""
-    if state.normal_test_install is None:
+    if install_state["normal_test_install"] is None:
         pytest.skip("Normal test install not created. Run test_install_normal first.")
-    return state.normal_test_install
+    return install_state["normal_test_install"]
 
 
 @pytest.fixture(scope="session")
 def lockfile_test_install():
     """Session-scoped install from test_install_from_lockfile."""
-    if state.lockfile_test_install is None:
+    if install_state["lockfile_test_install"] is None:
         pytest.skip(
             "Lockfile test install not created. Run test_install_from_lockfile first."
         )
-    return state.lockfile_test_install
+    return install_state["lockfile_test_install"]
 
 
 # ============================================================================

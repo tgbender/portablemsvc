@@ -1,11 +1,17 @@
 """Tests that create session-scoped installs. Skipped by default."""
 
 import json
-import sys
+from typing import Any, Dict, Optional
 
 import pytest
 from plumbum import local
 
+
+# Session state shared with conftest.py
+install_state: Dict[str, Optional[Dict[str, Any]]] = {
+    "normal_test_install": None,
+    "lockfile_test_install": None,
+}
 
 pytestmark = pytest.mark.slow_install  # All tests in this file are slow
 
@@ -16,8 +22,6 @@ def test_install_normal(portablemsvc_exe, tmp_path_factory):
     Create normal install for session.
     Stores in install_state.normal_test_install.
     """
-    state = sys.modules["install_state"]
-
     tmp = tmp_path_factory.mktemp("normal_install")
     data_dir = tmp / "data"
     config_dir = tmp / "config"
@@ -43,7 +47,7 @@ def test_install_normal(portablemsvc_exe, tmp_path_factory):
     assert "PATH" in env
 
     # Store for other tests
-    state.normal_test_install = {
+    install_state["normal_test_install"] = {
         "data_dir": data_dir,
         "config_dir": config_dir,
         "install_path": install_path,
@@ -61,8 +65,7 @@ def test_install_from_lockfile(portablemsvc_exe, tmp_path_factory):
     Create lockfile install for session.
     Depends on normal_test_install already existing.
     """
-    state = sys.modules["install_state"]
-    if state.normal_test_install is None:
+    if install_state["normal_test_install"] is None:
         pytest.skip("Need normal_test_install first")
 
     tmp = tmp_path_factory.mktemp("lockfile_install")
@@ -78,7 +81,7 @@ def test_install_from_lockfile(portablemsvc_exe, tmp_path_factory):
 
     cmd[
         "install-from-lockfile",
-        str(state.normal_test_install["lockfile"]),
+        str(install_state["normal_test_install"]["lockfile"]),
         "--accept-license",
     ]()
 
@@ -90,7 +93,7 @@ def test_install_from_lockfile(portablemsvc_exe, tmp_path_factory):
     env = json.loads(env_json.read_text())
     assert "CC" in env
 
-    state.lockfile_test_install = {
+    install_state["lockfile_test_install"] = {
         "data_dir": data_dir,
         "config_dir": config_dir,
         "install_path": install_path,
