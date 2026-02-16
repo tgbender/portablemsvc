@@ -51,13 +51,13 @@ def list_installed() -> None:
         typer.echo(f"  Installed:  {rec.get('installed_at', 'N/A')}")
 
 
-@app.command("show-versions")
-def show_versions(
+@app.command("search")
+def search(
     channel: str = typer.Option("release", "--channel", help="Which channel to query (release|preview)"),
     no_cache: bool = typer.Option(False, "--no-cache", help="Disable manifest cache"),
     full: bool = typer.Option(False, "--full", help="Show full MSVC x.y.z.w build versions"),
 ) -> None:
-    """Show available MSVC and Windows SDK versions."""
+    """Search available MSVC and Windows SDK versions."""
     cache = not no_cache
     if full:
         # re-parse to get raw full build strings
