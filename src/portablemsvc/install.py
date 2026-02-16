@@ -332,6 +332,11 @@ def install_msvc_components(
     )
     _create_setup_batch_files(output_dir, msvc_version, sdk_version, host, targets)
 
+    # Collect tool versions (guarded with timeout)
+    tool_versions = _collect_tool_versions(
+        output_dir, msvc_version, host, targets, lockfile
+    )
+
     # Save installation record
     install_id = save_installed_version(
         output_dir=output_dir,
@@ -347,7 +352,86 @@ def install_msvc_components(
         "msvc_internal_version": internal_msvc,
         "sdk_version": sdk_ver,
         "install_id": install_id,
+        "tool_versions": tool_versions,
     }
+
+
+def _collect_tool_versions(
+    output_dir: Path,
+    msvc_version: str,
+    host: str,
+    targets: List[str],
+    lockfile: Optional["Lockfile"] = None,
+) -> Dict[str, str]:
+    """
+    Collect PE file versions from MSVC tools (cl.exe, lib.exe, link.exe, nmake.exe).
+
+    Uses pefile to read version info from PE headers.
+    Returns empty dict if version collection fails.
+    """
+    try:
+        import pefile
+    except ImportError:
+        logger.debug("pefile not available, skipping tool version collection")
+        return {}
+
+    msvc_bin_root = (
+        output_dir / "VC" / "Tools" / "MSVC" / msvc_version / f"bin/Host{host}"
+    )
+    primary_tgt = targets[0] if targets else host
+    msvc_bin = msvc_bin_root / primary_tgt
+
+    tools = {
+        "cl.exe": msvc_bin / "cl.exe",
+        "lib.exe": msvc_bin / "lib.exe",
+        "link.exe": msvc_bin / "link.exe",
+    }
+
+    # nmake.exe might be in a different location
+    nmake_paths = [
+        msvc_bin / "nmake.exe",
+        output_dir / "VC" / "Tools" / "MSVC" / msvc_version / "bin" / "Hostx64" / "x64" / "nmake.exe",
+    ]
+    for nmake_path in nmake_paths:
+        if nmake_path.exists():
+            tools["nmake.exe"] = nmake_path
+            break
+
+    tool_versions: Dict[str, str] = {}
+
+    for tool_name, tool_path in tools.items():
+        if not tool_path.exists():
+            logger.debug(f"Tool not found: {tool_path}")
+            continue
+
+        try:
+            pe = pefile.PE(str(tool_path), fast_load=True)
+            pe.parse_data_directories(
+                directories=[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_RESOURCE"]]
+            )
+
+            if hasattr(pe, "FileInfo") and pe.FileInfo:
+                for file_info in pe.FileInfo:
+                    for entry in file_info:
+                        if hasattr(entry, "Key") and entry.Key == b"StringFileInfo":
+                            for table in entry.StringTable:
+                                if b"FileVersion" in table.entries:
+                                    version = table.entries[b"FileVersion"].decode(
+                                        "utf-8", errors="ignore"
+                                    )
+                                    if version:
+                                        tool_versions[tool_name] = version
+                                        logger.debug(f"{tool_name}: {version}")
+                                    break
+            pe.close()
+        except Exception as e:
+            logger.warning(f"Failed to get version for {tool_name}: {e}")
+
+    # Record in lockfile if available
+    if lockfile is not None and tool_versions:
+        lockfile.set_tool_versions(tool_versions)
+
+    return tool_versions
 
 
 def _generate_env_spec(

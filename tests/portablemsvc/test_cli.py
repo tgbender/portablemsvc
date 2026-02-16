@@ -87,10 +87,10 @@ def test_list_empty_directory(portablemsvc_isolated, empty_data_dir, monkeypatch
 
 
 @pytest.mark.cli
-def test_list_nonexistent_directory(portablemsvc, tmp_path):
+def test_list_nonexistent_directory(portablemsvc_isolated, tmp_path):
     """list with PORTABLEMSVC_DATA pointing to non-existent dir."""
     fake_path = tmp_path / "does_not_exist"
-    cmd = portablemsvc.with_env(PORTABLEMSVC_DATA=str(fake_path))
+    cmd = portablemsvc_isolated.with_env(PORTABLEMSVC_DATA=str(fake_path))
 
     result = cmd["list", "--json"]()
     data = json.loads(result)
@@ -104,3 +104,156 @@ def test_help_shows_commands(portablemsvc):
     assert "list" in result
     assert "search" in result
     assert "install" in result
+
+
+@pytest.mark.cli
+def test_compile_cpp_with_system_install(system_install, tmp_path):
+    """Compile C++ code using system install's env."""
+    from plumbum import local
+
+    env = json.loads((system_install["install_path"] / "env.json").read_text())
+
+    test_cpp = tmp_path / "test.cpp"
+    test_cpp.write_text(
+        '#include <iostream>\n'
+        'int main(){std::cout << "CPP_OK";return 0;}'
+    )
+
+    new_path = ";".join(env["PATH"]) + ";" + local.env["PATH"]
+    cl = local[env["CXX"]].with_env(
+        PATH=new_path,
+        INCLUDE=";".join(env["INCLUDE"]),
+        LIB=";".join(env["LIB"]),
+    )
+
+    out_exe = tmp_path / "test.exe"
+    cl["/nologo", f"/Fe:{out_exe}", str(test_cpp)]()
+
+    assert out_exe.exists()
+    assert local[str(out_exe)]().strip() == "CPP_OK"
+
+
+@pytest.mark.cli
+def test_env_json_has_all_required_vars(system_install):
+    """Verify env.json contains all required compiler variables."""
+    env_path = system_install["install_path"] / "env.json"
+    env = json.loads(env_path.read_text())
+
+    required_vars = [
+        "CC", "CXX", "AR", "MAKE",
+        "VCINSTALLDIR", "VCToolsInstallDir", "WindowsSDKDir",
+        "VCToolsVersion", "WindowsSDKVersion",
+        "VSCMD_ARG_HOST_ARCH", "VSCMD_ARG_TGT_ARCH",
+        "PATH", "INCLUDE", "LIB", "LIBPATH",
+    ]
+
+    for var in required_vars:
+        assert var in env, f"Missing required env var: {var}"
+
+
+@pytest.mark.cli
+def test_compiler_paths_exist(system_install):
+    """Verify compiler executables referenced in env.json exist."""
+    env = json.loads((system_install["install_path"] / "env.json").read_text())
+
+    assert Path(env["CC"]).exists(), f"CC not found: {env['CC']}"
+    assert Path(env["CXX"]).exists(), f"CXX not found: {env['CXX']}"
+    assert Path(env["AR"]).exists(), f"AR not found: {env['AR']}"
+
+
+@pytest.mark.cli
+def test_include_paths_exist(system_install):
+    """Verify INCLUDE paths from env.json exist."""
+    env = json.loads((system_install["install_path"] / "env.json").read_text())
+
+    for inc_path in env["INCLUDE"]:
+        assert Path(inc_path).exists(), f"INCLUDE path not found: {inc_path}"
+
+
+@pytest.mark.cli
+def test_lib_paths_exist(system_install):
+    """Verify LIB paths from env.json exist."""
+    env = json.loads((system_install["install_path"] / "env.json").read_text())
+
+    for lib_path in env["LIB"]:
+        assert Path(lib_path).exists(), f"LIB path not found: {lib_path}"
+
+
+@pytest.mark.cli
+def test_compile_with_windows_headers(system_install, tmp_path):
+    """Compile code that includes Windows SDK headers."""
+    from plumbum import local
+
+    env = json.loads((system_install["install_path"] / "env.json").read_text())
+
+    test_c = tmp_path / "test_win.c"
+    test_c.write_text(
+        '#include <windows.h>\n'
+        '#include <stdio.h>\n'
+        'int main(){printf("WIN_OK");return 0;}'
+    )
+
+    new_path = ";".join(env["PATH"]) + ";" + local.env["PATH"]
+    cl = local[env["CC"]].with_env(
+        PATH=new_path,
+        INCLUDE=";".join(env["INCLUDE"]),
+        LIB=";".join(env["LIB"]),
+    )
+
+    out_exe = tmp_path / "test.exe"
+    cl["/nologo", f"/Fe:{out_exe}", str(test_c)]()
+
+    assert out_exe.exists()
+    assert local[str(out_exe)]().strip() == "WIN_OK"
+
+
+@pytest.mark.cli
+def test_compiler_version_matches_env(system_install):
+    """Verify cl.exe executable version matches env.json VCToolsVersion."""
+    import subprocess
+
+    env = json.loads((system_install["install_path"] / "env.json").read_text())
+
+    # Get file version from cl.exe directly
+    cl_path = Path(env["CC"])
+    result = subprocess.run(
+        ["powershell", "-Command",
+         f"(Get-ItemProperty '{cl_path}').VersionInfo.FileVersion"],
+        capture_output=True, text=True, check=True
+    )
+    file_version = result.stdout.strip()
+
+    # VCToolsVersion is like "14.44.35207", file version is like "14.44.35207.0"
+    assert env["VCToolsVersion"] in file_version, (
+        f"VCToolsVersion {env['VCToolsVersion']} not in cl.exe file version {file_version}"
+    )
+
+
+@pytest.mark.cli
+def test_ar_lib_tool_works(system_install, tmp_path):
+    """Test that lib.exe (AR) can create a static library."""
+    from plumbum import local
+
+    env = json.loads((system_install["install_path"] / "env.json").read_text())
+
+    # Create a simple object file first
+    test_c = tmp_path / "test_lib.c"
+    test_c.write_text("int test_func(){return 42;}")
+
+    new_path = ";".join(env["PATH"]) + ";" + local.env["PATH"]
+    cl = local[env["CC"]].with_env(
+        PATH=new_path,
+        INCLUDE=";".join(env["INCLUDE"]),
+    )
+
+    obj_file = tmp_path / "test_lib.obj"
+    cl["/nologo", "/c", f"/Fo:{obj_file}", str(test_c)]()
+    assert obj_file.exists()
+
+    # Now use lib.exe to create static library
+    lib = local[env["AR"]].with_env(PATH=new_path)
+    lib_file = tmp_path / "test_lib.lib"
+    lib["/nologo", f"/OUT:{lib_file}", str(obj_file)]()
+
+    assert lib_file.exists()
+    assert lib_file.stat().st_size > 0

@@ -208,6 +208,10 @@ class Lockfile:
         """Record the installation ID."""
         self.data["install_id"] = install_id
 
+    def set_tool_versions(self, tool_versions: Dict[str, str]) -> None:
+        """Record the versions of installed tools (cl.exe, lib.exe, etc.)."""
+        self.data["tool_versions"] = tool_versions
+
     def to_dict(self) -> Dict[str, Any]:
         """Return the lockfile as a dictionary."""
         return self.data

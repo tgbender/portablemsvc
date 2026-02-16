@@ -12,6 +12,7 @@ dependencies = [
   "plumbum>=1.9.0,<2.0.0",
   "typer>=0.15.0,<1.0.0",
   "platformdirs>=4.3.8,<5.0.0",
+  "pefile>=2024.8.26",
 ]
 
 [project.scripts]

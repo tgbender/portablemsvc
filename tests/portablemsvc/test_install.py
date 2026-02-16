@@ -1,6 +1,7 @@
 """Tests that create session-scoped installs. Skipped by default."""
 
 import json
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 import pytest
@@ -17,14 +18,13 @@ pytestmark = pytest.mark.slow_install  # All tests in this file are slow
 
 
 @pytest.mark.integration
-def test_install_normal(portablemsvc_exe, tmp_path_factory):
+def test_install_normal(portablemsvc_exe, normal_install_dir: Path):
     """
     Create normal install for session.
     Stores in install_state.normal_test_install.
     """
-    tmp = tmp_path_factory.mktemp("normal_install")
-    data_dir = tmp / "data"
-    config_dir = tmp / "config"
+    data_dir = normal_install_dir / "data"
+    config_dir = normal_install_dir / "config"
     data_dir.mkdir(parents=True)
     config_dir.mkdir(parents=True)
 
@@ -56,11 +56,12 @@ def test_install_normal(portablemsvc_exe, tmp_path_factory):
             "PORTABLEMSVC_DATA": str(data_dir),
             "PORTABLEMSVC_CONFIG": str(config_dir),
         },
+        "install_dir": normal_install_dir,
     }
 
 
 @pytest.mark.integration
-def test_install_from_lockfile(portablemsvc_exe, tmp_path_factory):
+def test_install_from_lockfile(portablemsvc_exe, lockfile_install_dir: Path):
     """
     Create lockfile install for session.
     Depends on normal_test_install already existing.
@@ -68,9 +69,8 @@ def test_install_from_lockfile(portablemsvc_exe, tmp_path_factory):
     if install_state["normal_test_install"] is None:
         pytest.skip("Need normal_test_install first")
 
-    tmp = tmp_path_factory.mktemp("lockfile_install")
-    data_dir = tmp / "data"
-    config_dir = tmp / "config"
+    data_dir = lockfile_install_dir / "data"
+    config_dir = lockfile_install_dir / "config"
     data_dir.mkdir(parents=True)
     config_dir.mkdir(parents=True)
 
@@ -101,4 +101,5 @@ def test_install_from_lockfile(portablemsvc_exe, tmp_path_factory):
             "PORTABLEMSVC_DATA": str(data_dir),
             "PORTABLEMSVC_CONFIG": str(config_dir),
         },
+        "install_dir": lockfile_install_dir,
     }

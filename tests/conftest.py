@@ -27,7 +27,7 @@ def pytest_collection_modifyitems(config, items):
     if not config.getoption("--run-installs"):
         skip_install = pytest.mark.skip(reason="use --run-installs to run")
         for item in items:
-            if "slow_install" in item.keywords:
+            if "slow_install" in item.keywords or "integration" in item.keywords:
                 item.add_marker(skip_install)
 
 
@@ -50,6 +50,23 @@ def portablemsvc_exe(project_root: Path) -> Path:
 def portablemsvc(portablemsvc_exe):
     """Base plumbum command."""
     return local[str(portablemsvc_exe)]
+
+
+# ============================================================================
+# INSTALL DIRECTORY FIXTURES (session-scoped temp dirs)
+# ============================================================================
+
+
+@pytest.fixture(scope="session")
+def normal_install_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Session-scoped temp directory for normal install."""
+    return tmp_path_factory.mktemp("normal_install")
+
+
+@pytest.fixture(scope="session")
+def lockfile_install_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Session-scoped temp directory for lockfile install."""
+    return tmp_path_factory.mktemp("lockfile_install")
 
 
 # ============================================================================

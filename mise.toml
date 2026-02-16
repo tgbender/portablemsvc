@@ -99,6 +99,8 @@ run = "taplo fmt --check **/*.toml"
 description = "Run main tests"
 run = "uv run pytest"
 
+[tasks.test-]
+
 [tasks.test-all]
 description = "Run all tests including guarded ones (same for now to be added to later)"
 run = "uv run pytest"
