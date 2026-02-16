@@ -6,11 +6,12 @@ import os
 from pathlib import Path
 import requests
 import time
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional
 
 from filelock import FileLock, Timeout
 
 from .config import CACHE_DIR
+from .lockfile import Lockfile
 
 # Constants for download operations
 CHUNK_SIZE = 1024 * 1024  # 1MB chunks for downloads
@@ -341,6 +342,7 @@ def download_files(
     cache_dir: Path = CACHE_DIR,
     max_retries: int = 3,
     base_wait_time: float = 2.0,
+    lockfile: Optional[Lockfile] = None,
 ) -> Dict[str, Path]:
     """
     Download multiple files with caching and hash verification.
@@ -348,6 +350,7 @@ def download_files(
     Args:
         files_to_download: Dictionary mapping file IDs to dicts with 'url', 'hash', and 'name' keys
         cache_dir: Directory to store cached downloads
+        lockfile: Optional Lockfile instance to record downloads
 
     Returns:
         Dictionary mapping file IDs to their local file paths
@@ -360,6 +363,8 @@ def download_files(
                 _, file_path = downloader.download(
                     file_info["url"], file_info["hash"], file_info["name"]
                 )
+                if lockfile is not None:
+                    lockfile.set_file_downloaded(file_info["name"], file_path)
                 downloaded_files[file_id] = file_path
             except Exception as e:
                 logger.error(f"Failed to download {file_info['name']}: {e}")

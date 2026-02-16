@@ -1,7 +1,9 @@
 import logging
 
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+
+from .lockfile import Lockfile
 
 logger = logging.getLogger(__name__)
 
@@ -28,11 +30,15 @@ def get_msi_cab_files(path: Path) -> List[str]:
 
 
 def parse_msi_for_cabs(
-    files_map: Dict[str, Path], sdk_pkg_info: Dict[str, Any]
+    files_map: Dict[str, Path],
+    sdk_pkg_info: Dict[str, Any],
+    lockfile: Optional[Lockfile] = None,
 ) -> Dict[str, Dict[str, str]]:
     """
     Scan downloaded .msi files for embedded .cab names,
     map each to its URL/hash via sdk_pkg_info['payloads'].
+
+    If lockfile is provided, CAB entries are added with parent MSI reference.
     """
     cab_payloads: Dict[str, Dict[str, str]] = {}
     payloads = sdk_pkg_info.get("payloads", [])
@@ -55,6 +61,16 @@ def parse_msi_for_cabs(
                     "hash": match["sha256"],
                     "name": cab_name,
                 }
+                if lockfile is not None:
+                    lockfile.add_file(
+                        file_id=f"cab_{cab_name}",
+                        filename=cab_name,
+                        url=match["url"],
+                        sha256=match["sha256"],
+                        file_type="cab",
+                        package_ref="sdk",
+                        parent=fname,  # Reference to parent MSI
+                    )
             else:
                 # Skip logging for known non-critical CABs
                 if not cab_name.startswith(("exit.", "inserted.")):

@@ -6,8 +6,8 @@ from portablemsvc.parse_manifest import parse_vs_manifest
 def test_parse_vs_manifest_basic():
     """Test that parse_vs_manifest runs to completion with default arguments."""
     try:
-        # First get the manifest
-        manifest = get_vs_manifest()
+        # First get the manifest (now returns tuple of manifest and source info)
+        manifest, _ = get_vs_manifest()
 
         # Then parse it with some basic parameters
         result = parse_vs_manifest(manifest, host="x64", targets=["x64"])

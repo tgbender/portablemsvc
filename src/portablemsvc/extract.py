@@ -6,12 +6,13 @@ import logging
 from .parse_msi import extract_cab_names as _get_msi_cab_files
 
 from pathlib import Path
-from typing import Dict, List, Set, Generator
+from typing import Dict, List, Set, Generator, Optional
 from contextlib import contextmanager
 
 from plumbum import local
 
 from .config import TEMP_DIR
+from .lockfile import Lockfile
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,7 @@ def extract_package_files(
     output_dir: Path,
     extract_msvc: bool = True,
     extract_sdk: bool = True,
+    lockfile: Optional[Lockfile] = None,
 ) -> Dict[str, Set[Path]]:
     """
     Extract package files from their cached locations to the output directory.
@@ -95,8 +97,13 @@ def extract_package_files(
             if extract_msvc:
                 logger.info("Starting MSVC (ZIP/VSIX) extraction")
                 for ext in ["*.zip", "*.vsix"]:
-                    for zf in workdir.glob(ext):
+                    for zf in sorted(workdir.glob(ext)):
+                        rel_name = zf.name
                         out_files = _extract_zip_file(zf, temp_output_dir)
+                        if lockfile is not None:
+                            for out_file in out_files:
+                                rel_path = out_file.relative_to(temp_output_dir)
+                                lockfile.add_file_extraction(rel_name, rel_path)
                         results["msvc"].update(out_files)
 
             # 3) Extract SDK (.msi) packages
@@ -115,8 +122,22 @@ def extract_package_files(
                 # Perform the admin‐install
                 for msi in msi_list:
                     output_msi = temp_output_dir / msi.name
+                    msi_name = msi.name
+
+                    # Capture state before extraction
+                    existing_files = set(temp_output_dir.rglob("*")) if temp_output_dir.exists() else set()
+
                     if _extract_msi_file(msi, temp_output_dir):
                         results["sdk"].add(output_msi)
+
+                        if lockfile is not None:
+                            # Find newly extracted files
+                            new_files = set(temp_output_dir.rglob("*")) - existing_files
+                            for ef in new_files:
+                                if ef.is_file():
+                                    rel_path = ef.relative_to(temp_output_dir)
+                                    lockfile.add_file_extraction(msi_name, rel_path)
+
                         # Unlink the MSI file from the output directory after extraction
                         if output_msi.exists():
                             logger.info(f"Removing extracted MSI file: {output_msi}")

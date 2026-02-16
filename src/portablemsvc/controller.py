@@ -15,6 +15,7 @@ from .install_status import (
     get_installed_versions,
 )
 from .install import _generate_env_spec, _write_activation_scripts
+from .lockfile import Lockfile
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ def get_available_versions(
     Return dict with 'msvc' and 'sdk' listing the available versions
     for the given channel.
     """
-    vs_manifest = get_vs_manifest(channel=channel, cache=cache)
+    vs_manifest, _ = get_vs_manifest(channel=channel, cache=cache)
     parsed = parse_vs_manifest(
         vs_manifest,
         host=DEFAULT_HOST,
@@ -50,6 +51,7 @@ def install_msvc(
     cache: bool = True,
     force: bool = False,
     output_dir: Optional[Path] = None,
+    lockfile_path: Optional[Path] = None,
     accept_license: bool = False,
 ) -> Dict[str, Any]:
     """
@@ -62,6 +64,15 @@ def install_msvc(
       6) post-extract setup (CRT, msdia, cleanup, batch files)
       7) record in installed.json
     """
+    # Initialize lockfile
+    lockfile = Lockfile(
+        channel=channel,
+        host=host,
+        targets=targets if targets else [DEFAULT_TARGET],
+        msvc_version=msvc_version,
+        sdk_version=sdk_version,
+    )
+
     # 0) license‐check: refuse to continue if no acceptance
     if not accept_license:
         raise RuntimeError("License not accepted; installation aborted.")
@@ -70,13 +81,30 @@ def install_msvc(
         targets = [DEFAULT_TARGET]
 
     # 1) fetch & parse manifest so we know the actual full versions
-    vs_manifest = get_vs_manifest(channel=channel, cache=cache)
+    vs_manifest, source_info = get_vs_manifest(channel=channel, cache=cache)
+
+    # Record source manifests in lockfile
+    lockfile.set_source_manifests(
+        channel_manifest_url=source_info["channel_manifest_url"],
+        channel_manifest_hash=source_info["channel_manifest_hash"],
+        vs_manifest_url=source_info["vs_manifest_url"],
+        vs_manifest_hash=source_info["vs_manifest_hash"],
+    )
+
     parsed = parse_vs_manifest(
         vs_manifest,
         host=host,
         targets=targets,
         msvc_version=msvc_version,
         sdk_version=sdk_version,
+    )
+
+    # Record resolved versions in lockfile
+    lockfile.set_resolved_versions(
+        msvc_full_version=parsed["selected_msvc"]["full_version"],
+        msvc_package_id=parsed["selected_msvc"]["package_id"],
+        sdk_version=parsed["selected_sdk"]["version"],
+        sdk_package_id=parsed["selected_sdk"]["package_id"],
     )
 
     # 2) skip if that exact full MSVC+SDK is already installed
@@ -99,12 +127,16 @@ def install_msvc(
             }
 
     # 3) download main payloads (ZIPs + MSIs)
-    files_map = download_manifest_files(parsed, cache_dir=Path(CACHE_DIR))
+    files_map = download_manifest_files(
+        parsed,
+        cache_dir=Path(CACHE_DIR),
+        lockfile=lockfile,
+    )
 
     # 4) scan MSIs for CABS & download those too
     sdk_info = parsed["selected_sdk"]["package_info"]
-    cab_payloads = parse_msi_for_cabs(files_map, sdk_info)
-    cab_downloads = download_files(cab_payloads, cache_dir=Path(CACHE_DIR))
+    cab_payloads = parse_msi_for_cabs(files_map, sdk_info, lockfile=lockfile)
+    cab_downloads = download_files(cab_payloads, cache_dir=Path(CACHE_DIR), lockfile=lockfile)
 
     all_files = {**files_map, **cab_downloads}
 
@@ -116,7 +148,11 @@ def install_msvc(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     logger.info(f"Extracting all packages to: {output_dir}")
-    extracted = extract_package_files(all_files, output_dir)
+    extracted = extract_package_files(
+        all_files,
+        output_dir,
+        lockfile=lockfile,
+    )
 
     # 6) post-extract install steps
     install_result = install_msvc_components(
@@ -126,6 +162,7 @@ def install_msvc(
         targets,
         manifest_msvc_version=msvc_full,
         sdk_manifest_version=sdk_ver,
+        lockfile=lockfile,
     )
 
     # emit env.json so registry_helpers and activation scripts know exactly what to set
@@ -137,6 +174,14 @@ def install_msvc(
         install_result["sdk_version"],
     )
     _write_activation_scripts(output_dir, spec)
+
+    # Save lockfile
+    lockfile.set_env_spec(spec)
+    lockfile.set_install_id(install_result["install_id"])
+    lockfile_path = lockfile_path or (output_dir / "portablemsvc.lock")
+    lockfile.write(lockfile_path)
+    logger.info(f"Lockfile written to: {lockfile_path}")
+
     # automatic registration into HKCU\Environment has been disabled;
     # run "portablemsvc register" manually if you want to set environment vars
 

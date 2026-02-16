@@ -61,7 +61,7 @@ def show_versions(
     cache = not no_cache
     if full:
         # re-parse to get raw full build strings
-        vs_manifest = get_vs_manifest(channel=channel, cache=cache)
+        vs_manifest, _ = get_vs_manifest(channel=channel, cache=cache)
         parsed = parse_vs_manifest(
             vs_manifest,
             host=DEFAULT_HOST,

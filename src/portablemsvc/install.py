@@ -2,12 +2,15 @@ import shutil
 import logging
 import json
 from pathlib import Path
-from typing import Dict, List, Set, Optional, Any
+from typing import Dict, List, Set, Optional, Any, TYPE_CHECKING
 
 from .install_status import (
     save_installed_version,
     is_version_installed,
 )
+
+if TYPE_CHECKING:
+    from .lockfile import Lockfile
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +37,8 @@ MSDIA140_PATHS = {
 
 
 def _cleanup_unnecessary_files(
-    output_dir: Path, msvc_version: str, sdk_version: str, host: str, targets: List[str]
+    output_dir: Path, msvc_version: str, sdk_version: str, host: str, targets: List[str],
+    lockfile: Optional["Lockfile"] = None,
 ):
     """
     Remove unnecessary files and directories from the extracted components.
@@ -50,47 +54,71 @@ def _cleanup_unnecessary_files(
 
     # Remove common unnecessary directories
     for dir_path in CLEANUP_DIRS["common"]:
-        shutil.rmtree(output_dir / dir_path, ignore_errors=True)
+        full_path = output_dir / dir_path
+        if full_path.exists() and lockfile is not None:
+            lockfile.add_removed_file(full_path.relative_to(output_dir))
+        shutil.rmtree(full_path, ignore_errors=True)
 
     # Remove MSVC-specific unnecessary directories
     msvc_base = output_dir / "VC/Tools/MSVC" / msvc_version
     for dir_path in CLEANUP_DIRS["msvc"]:
-        shutil.rmtree(msvc_base / dir_path, ignore_errors=True)
+        full_path = msvc_base / dir_path
+        if full_path.exists() and lockfile is not None:
+            lockfile.add_removed_file(full_path.relative_to(output_dir))
+        shutil.rmtree(full_path, ignore_errors=True)
 
     # Remove unnecessary target-specific libraries
     for target in targets:
         for subdir in CLEANUP_DIRS["lib_subdirs"]:
-            shutil.rmtree(msvc_base / "lib" / target / subdir, ignore_errors=True)
-        shutil.rmtree(
-            msvc_base / f"bin/Host{host}" / target / "onecore", ignore_errors=True
-        )
+            full_path = msvc_base / "lib" / target / subdir
+            if full_path.exists() and lockfile is not None:
+                lockfile.add_removed_file(full_path.relative_to(output_dir))
+            shutil.rmtree(full_path, ignore_errors=True)
+        full_path = msvc_base / f"bin/Host{host}" / target / "onecore"
+        if full_path.exists() and lockfile is not None:
+            lockfile.add_removed_file(full_path.relative_to(output_dir))
+        shutil.rmtree(full_path, ignore_errors=True)
 
     # Remove unnecessary SDK files
     sdk_base = output_dir / "Windows Kits/10"
     for dir_pattern in CLEANUP_DIRS["sdk"]:
         dir_path = dir_pattern.format(sdk_version=sdk_version)
-        shutil.rmtree(sdk_base / dir_path, ignore_errors=True)
+        full_path = sdk_base / dir_path
+        if full_path.exists() and lockfile is not None:
+            lockfile.add_removed_file(full_path.relative_to(output_dir))
+        shutil.rmtree(full_path, ignore_errors=True)
 
     # Remove architectures not in targets
     from .config import ALL_TARGETS
 
     for arch in ALL_TARGETS:
         if arch not in targets:
-            shutil.rmtree(
-                sdk_base / "Lib" / sdk_version / "ucrt" / arch, ignore_errors=True
-            )
-            shutil.rmtree(
-                sdk_base / "Lib" / sdk_version / "um" / arch, ignore_errors=True
-            )
+            full_path = sdk_base / "Lib" / sdk_version / "ucrt" / arch
+            if full_path.exists() and lockfile is not None:
+                lockfile.add_removed_file(full_path.relative_to(output_dir))
+            shutil.rmtree(full_path, ignore_errors=True)
+            full_path = sdk_base / "Lib" / sdk_version / "um" / arch
+            if full_path.exists() and lockfile is not None:
+                lockfile.add_removed_file(full_path.relative_to(output_dir))
+            shutil.rmtree(full_path, ignore_errors=True)
         if arch != host:
-            shutil.rmtree(msvc_base / f"bin/Host{arch}", ignore_errors=True)
-            shutil.rmtree(sdk_base / "bin" / sdk_version / arch, ignore_errors=True)
+            full_path = msvc_base / f"bin/Host{arch}"
+            if full_path.exists() and lockfile is not None:
+                lockfile.add_removed_file(full_path.relative_to(output_dir))
+            shutil.rmtree(full_path, ignore_errors=True)
+            full_path = sdk_base / "bin" / sdk_version / arch
+            if full_path.exists() and lockfile is not None:
+                lockfile.add_removed_file(full_path.relative_to(output_dir))
+            shutil.rmtree(full_path, ignore_errors=True)
 
     # Remove telemetry artifacts (exe + DLL)
     for target in targets:
         bin_dir = msvc_base / f"bin/Host{host}" / target
-        (bin_dir / "vctip.exe").unlink(missing_ok=True)
-        (bin_dir / "Microsoft.VisualStudio.Telemetry.dll").unlink(missing_ok=True)
+        for filename in ["vctip.exe", "Microsoft.VisualStudio.Telemetry.dll"]:
+            file_path = bin_dir / filename
+            if file_path.exists() and lockfile is not None:
+                lockfile.add_removed_file(file_path.relative_to(output_dir))
+            file_path.unlink(missing_ok=True)
 
 
 def _setup_msdia140(output_dir: Path, msvc_version: str, host: str, targets: List[str]):
@@ -240,6 +268,7 @@ def install_msvc_components(
     targets: List[str],
     manifest_msvc_version: Optional[str] = None,
     sdk_manifest_version: Optional[str] = None,
+    lockfile: Optional["Lockfile"] = None,
 ) -> Dict[str, str]:
     """
     Install MSVC components after extraction.
@@ -257,6 +286,7 @@ def install_msvc_components(
         targets: List of target architectures
         msvc_version: Optional specific MSVC version (if None, will be detected)
         sdk_version: Optional specific SDK version (if None, will be detected)
+        lockfile: Optional Lockfile instance to record installation
 
     Returns:
         Dictionary with detected 'msvc_version' and 'sdk_version'
@@ -293,7 +323,7 @@ def install_msvc_components(
     # Perform installation steps
     _setup_debug_crt(output_dir, msvc_version, host, targets)
     _setup_msdia140(output_dir, msvc_version, host, targets)
-    _cleanup_unnecessary_files(output_dir, msvc_version, sdk_version, host, targets)
+    _cleanup_unnecessary_files(output_dir, msvc_version, sdk_version, host, targets, lockfile)
     _create_setup_batch_files(output_dir, msvc_version, sdk_version, host, targets)
 
     # Save installation record
@@ -305,6 +335,13 @@ def install_msvc_components(
         host=host,
         targets=targets,
     )
+
+    if lockfile is not None:
+        # Generate and record env spec
+        spec = _generate_env_spec(
+            output_dir, host, targets, msvc_version, sdk_version
+        )
+        lockfile.set_env_spec(spec)
 
     return {
         "msvc_manifest_version": manifest_ver,
@@ -425,6 +462,7 @@ def _write_activation_scripts(
     install_root = install_root.resolve()
     if spec is None:
         spec = json.loads((install_root / "env.json").read_text())
+    assert spec is not None
 
     # --- activate.cmd ---
     cmd = ["@echo off", "REM Activate portable MSVC\n"]
