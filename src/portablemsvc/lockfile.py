@@ -125,19 +125,25 @@ class Lockfile:
         if entry:
             entry["extracted_paths"].append(str(extracted_path))
             # Track extraction sequence if not already recorded for this file
-            if filename not in [s["filename"] for s in self.data["extraction_sequence"]]:
+            if filename not in [
+                s["filename"] for s in self.data["extraction_sequence"]
+            ]:
                 self._extraction_order += 1
-                self.data["extraction_sequence"].append({
-                    "order": self._extraction_order,
-                    "filename": filename,
-                    "file_id": entry.get("id", filename),
-                })
+                self.data["extraction_sequence"].append(
+                    {
+                        "order": self._extraction_order,
+                        "filename": filename,
+                        "file_id": entry.get("id", filename),
+                    }
+                )
 
     def add_removed_file(self, path: Path) -> None:
         """Record a file or directory that was removed during cleanup."""
         self.data["removed_files"].append(str(path))
 
-    def set_env_spec(self, spec: Dict[str, Any], install_root: Optional[Path] = None) -> None:
+    def set_env_spec(
+        self, spec: Dict[str, Any], install_root: Optional[Path] = None
+    ) -> None:
         """Record the environment specification with portable paths.
 
         Args:
@@ -166,13 +172,13 @@ class Lockfile:
                     return path_str
                 # If under install_root, make relative (checked first since install_root is typically under home)
                 if path_str.startswith(root_str):
-                    rel = path_str[len(root_str):]
+                    rel = path_str[len(root_str) :]
                     if rel.startswith("\\") or rel.startswith("/"):
                         rel = rel[1:]
                     return rel if rel else "."
                 # If path starts with home directory, use %USERPROFILE%
                 if path_str.startswith(home_str):
-                    rel = path_str[len(home_str):]
+                    rel = path_str[len(home_str) :]
                     if rel.startswith("\\") or rel.startswith("/"):
                         rel = rel[1:]
                     return f"%USERPROFILE%\\{rel}" if rel else "%USERPROFILE%"
@@ -180,7 +186,14 @@ class Lockfile:
                 return path_str
 
             # Convert scalar path fields
-            for key in ["CC", "CXX", "AR", "VCINSTALLDIR", "VCToolsInstallDir", "WindowsSDKDir"]:
+            for key in [
+                "CC",
+                "CXX",
+                "AR",
+                "VCINSTALLDIR",
+                "VCToolsInstallDir",
+                "WindowsSDKDir",
+            ]:
                 if key in portable_spec:
                     portable_spec[key] = make_portable(portable_spec[key])
 
@@ -233,7 +246,14 @@ class Lockfile:
             return path_str
 
         # Convert scalar path fields
-        for key in ["CC", "CXX", "AR", "VCINSTALLDIR", "VCToolsInstallDir", "WindowsSDKDir"]:
+        for key in [
+            "CC",
+            "CXX",
+            "AR",
+            "VCINSTALLDIR",
+            "VCToolsInstallDir",
+            "WindowsSDKDir",
+        ]:
             if key in abs_spec:
                 abs_spec[key] = expand_path(abs_spec[key])
 

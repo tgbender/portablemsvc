@@ -17,8 +17,14 @@ DO_NOT_TRACK = "1"               # Disable tracking for that respect this variab
 [settings]
 npm.package_manager = "bun"
 windows_default_inline_shell_args = "powershell -NoProfile -Command"
+python.uv_venv_auto = true
 
 ### SETUP TASKS
+[tasks.setup-editable]
+description = "setup the python venv and such for development and testing. Will install an editable install of the package into the venv"
+run = "uv pip install --editable ."
+depends = ["uv-sync-all"]
+
 [tasks.setup-hooks]
 description = "Install pre-commit hooks"
 run = "prek install"
@@ -96,3 +102,9 @@ run = "uv run pytest"
 [tasks.test-all]
 description = "Run all tests including guarded ones (same for now to be added to later)"
 run = "uv run pytest"
+
+### OTHER
+[tasks.check-venv]
+description = "validate that the python path is correctly set to the venv."
+dir = "{{ config_root }}"
+run_windows = "if (-not ((Get-Command python).Source -like \"*$PWD*\")) { Write-Error 'Python not in venv'; exit 1 }"

@@ -40,7 +40,13 @@ def download_manifest_files(
             "name": filename,
         }
         if lockfile is not None:
-            file_type = "zip" if filename.endswith(".zip") else "vsix" if filename.endswith(".vsix") else "unknown"
+            file_type = (
+                "zip"
+                if filename.endswith(".zip")
+                else "vsix"
+                if filename.endswith(".vsix")
+                else "unknown"
+            )
             lockfile.add_file(
                 file_id=f"msvc_{payload_info['package']}",
                 filename=filename,

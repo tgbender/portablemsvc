@@ -18,8 +18,8 @@ dependencies = [
 portablemsvc = "portablemsvc.cli:app"
 
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build>=0.10.3,<0.11.0"]
+build-backend = "uv_build"
 
 keywords = ["compiler", "environment", "cli"]
 
@@ -43,6 +43,11 @@ classifiers = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"
+markers = [
+  "slow_install: marks tests that download and install MSVC (very slow, SSD-intensive)",
+  "cli: marks tests that invoke portablemsvc CLI",
+  "integration: marks tests that integrate multiple components (slow)",
+]
 
 [tool.mypy]
 ignore_missing_imports = true

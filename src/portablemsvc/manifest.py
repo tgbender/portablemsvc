@@ -72,11 +72,14 @@ def _download_channel_manifest(
                     json.dump(manifest_json, f)
 
                 with open(cache_meta_path, "w") as f:
-                    json.dump({
-                        "timestamp": time.time(),
-                        "hash": manifest_hash,
-                        "url": manifest_fetch_url,
-                    }, f)
+                    json.dump(
+                        {
+                            "timestamp": time.time(),
+                            "hash": manifest_hash,
+                            "url": manifest_fetch_url,
+                        },
+                        f,
+                    )
                 logger.debug("Manifest cached successfully")
             except Exception as e:
                 logger.warning(f"Failed to cache manifest: {e}")
@@ -95,7 +98,11 @@ def _download_channel_manifest(
             try:
                 with open(cache_meta_path, "r") as meta_f:
                     cache_meta = json.load(meta_f)
-                    return manifest, cache_meta.get("url", ""), cache_meta.get("hash", "")
+                    return (
+                        manifest,
+                        cache_meta.get("url", ""),
+                        cache_meta.get("hash", ""),
+                    )
             except (FileNotFoundError, json.JSONDecodeError):
                 return manifest, "", ""
 
@@ -103,7 +110,9 @@ def _download_channel_manifest(
         raise IOError(f"Failed to download manifest: {e}") from e
 
 
-def _parse_channel_manifest(channel_manifest: dict, channel: str = "release") -> Tuple[str, str]:
+def _parse_channel_manifest(
+    channel_manifest: dict, channel: str = "release"
+) -> Tuple[str, str]:
     if channel == "preview":
         item_name = PREVIEW_CHANNEL_MANIFEST_NAME
     elif channel == "release":
@@ -265,7 +274,9 @@ def get_vs_manifest(
     )
 
     # Step 2: Parse the channel manifest to get the VS manifest URL
-    vs_manifest_url, vs_manifest_hash = _parse_channel_manifest(channel_manifest, channel=channel)
+    vs_manifest_url, vs_manifest_hash = _parse_channel_manifest(
+        channel_manifest, channel=channel
+    )
 
     # Step 3: Download the VS manifest
     vs_manifest, final_url, final_hash = _download_vs_manifest(

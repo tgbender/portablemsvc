@@ -125,7 +125,11 @@ def extract_package_files(
                     msi_name = msi.name
 
                     # Capture state before extraction
-                    existing_files = set(temp_output_dir.rglob("*")) if temp_output_dir.exists() else set()
+                    existing_files = (
+                        set(temp_output_dir.rglob("*"))
+                        if temp_output_dir.exists()
+                        else set()
+                    )
 
                     if _extract_msi_file(msi, temp_output_dir):
                         results["sdk"].add(output_msi)

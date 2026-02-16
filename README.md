@@ -7,7 +7,8 @@
 - Fetch the latest (or specified) MSVC toolset and Windows SDK from the official Visual Studio release channel
 - Download and extract ZIPs, VSIX, MSI, and embedded CABs via `msiexec` without UI
 - Prune unneeded files (debug symbols, telemetry, etc.) to minimize disk usage
-- Generate `env.json`, `activate.cmd`, and `activate.ps1` for easy environment setup
+- Generate `env.json`, `activate.cmd`, `activate.ps1`, and `activate.xsh` for easy environment setup
+- Support for xonsh, PowerShell, and Command Prompt activation
 - Register/deregister toolchains in **HKCU\Environment**, with automatic PATH backup
 - Maintain multiple portable installs side-by-side via a simple JSON database
 - Plumbum-based CLI with subcommands for listing, installing, and managing toolchains
@@ -49,17 +50,20 @@ Run `portablemsvc --help` to view global options and subcommands.
 
 ### Subcommands
 
-- `show-versions`
-- `list`
-- `install`
-- `register`
-- `deregister`
+- `search` - Search available MSVC and SDK versions
+- `list` - List installed toolchains
+- `install` - Install a portable toolchain
+- `register` - Register toolchain into HKCU\Environment
+- `deregister` - Deregister toolchain from HKCU\Environment
+- `install-from-lockfile` - Reproducible install from a lockfile
 
-#### Show Available Versions
+#### Search Available Versions
 
 ```bat
-portablemsvc show-versions [--channel release|preview] [--no-cache] [--full]
+portablemsvc search [--channel release|preview] [--no-cache] [--full]
 ```
+
+Search for available MSVC and Windows SDK versions before installing.
 
 #### Install a Portable Toolchain
 
@@ -77,6 +81,22 @@ portablemsvc install
 
 By default, installs the latest x64 MSVC + SDK under:
 `%LOCALAPPDATA%\portable\msvc\msvc-<full_version>_sdk-<build>`
+
+**Environment Variable Overrides:**
+
+| Variable              | Purpose                           |
+| --------------------- | --------------------------------- |
+| `PORTABLEMSVC_CACHE`  | Override download cache directory |
+| `PORTABLEMSVC_DATA`   | Override install directory        |
+| `PORTABLEMSVC_CONFIG` | Override config directory         |
+| `PORTABLEMSVC_TEMP`   | Override temp directory           |
+
+**Example:**
+
+```bat
+set PORTABLEMSVC_CACHE=D:\cache\portablemsvc
+portablemsvc install
+```
 
 #### List Installed Toolchains
 
@@ -123,7 +143,27 @@ Displays for each install:
    portablemsvc register
    ```
 
-3. **Open a fresh** Command Prompt or PowerShell. Verify:
+3. **Activate** the environment (choose one):
+
+   **Command Prompt:**
+
+   ```bat
+   activate.cmd
+   ```
+
+   **PowerShell:**
+
+   ```powershell
+   .\activate.ps1
+   ```
+
+   **xonsh:**
+
+   ```xonsh
+   source activate.xsh
+   ```
+
+4. **Verify:**
 
    ```bat
    where link.exe
@@ -131,23 +171,49 @@ Displays for each install:
    cargo build        # should invoke link.exe from your portable MSVC
    ```
 
-4. **List** all installs:
+5. **List** all installs:
 
    ```bat
    portablemsvc list
    ```
 
-5. **Switch** to another install later:
+6. **Switch** to another install later:
 
    ```bat
    portablemsvc register --id <other_install_id>
    ```
 
-6. **Cleanup**:
+7. **Cleanup**:
 
    ```bat
    portablemsvc deregister
    ```
+
+## CI/CD Usage
+
+For reproducible builds in CI, use a lockfile:
+
+```bat
+# Install and generate lockfile (commit this to your repo)
+portablemsvc install --accept-license --output .\msvc
+
+# In CI, install from the lockfile for bit-for-bit reproducibility
+portablemsvc install-from-lockfile portablemsvc.lock --accept-license
+```
+
+**GitHub Actions Example:**
+
+```yaml
+- uses: actions/setup-python@v5
+  with:
+    python-version: "3.12"
+- uses: astral-sh/setup-uv@v5
+- run: uv tool install portablemsvc
+- run: portablemsvc install-from-lockfile portablemsvc.lock --accept-license
+  env:
+    PORTABLEMSVC_CACHE: D:\cache\portablemsvc
+- run: cargo build --release
+```
 
 ## Contributing
 

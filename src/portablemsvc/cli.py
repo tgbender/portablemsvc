@@ -31,9 +31,22 @@ def main(
 
 
 @app.command("list")
-def list_installed() -> None:
+def list_installed(
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
     """List toolchains recorded in the status database."""
+    if json_output:
+        import json
+        import logging
+
+        # Suppress filelock logging to keep stdout clean for JSON parsing
+        logging.getLogger("filelock").setLevel(logging.WARNING)
+        installs = get_installed_versions()
+        typer.echo(json.dumps(installs, indent=2))
+        return
+
     installs = get_installed_versions()
+
     if not installs:
         typer.echo("No toolchains recorded.")
         return
@@ -53,12 +66,18 @@ def list_installed() -> None:
 
 @app.command("search")
 def search(
-    channel: str = typer.Option("release", "--channel", help="Which channel to query (release|preview)"),
+    channel: str = typer.Option(
+        "release", "--channel", help="Which channel to query (release|preview)"
+    ),
     no_cache: bool = typer.Option(False, "--no-cache", help="Disable manifest cache"),
-    full: bool = typer.Option(False, "--full", help="Show full MSVC x.y.z.w build versions"),
+    full: bool = typer.Option(
+        False, "--full", help="Show full MSVC x.y.z.w build versions"
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
 ) -> None:
     """Search available MSVC and Windows SDK versions."""
     cache = not no_cache
+
     if full:
         # re-parse to get raw full build strings
         vs_manifest, _ = get_vs_manifest(channel=channel, cache=cache)
@@ -68,12 +87,25 @@ def search(
             targets=[DEFAULT_TARGET],
         )
         full_versions = sorted(
-            ".".join(pid.split(".")[2:6])
-            for pid in parsed["msvc_versions"].values()
+            ".".join(pid.split(".")[2:6]) for pid in parsed["msvc_versions"].values()
         )
-        typer.echo(f"MSVC full versions: {' '.join(full_versions)}")
-        # Also show SDK versions in --full mode
         sdk_versions = sorted(parsed["sdk_versions"].keys())
+
+        if json_output:
+            import json
+
+            typer.echo(
+                json.dumps(
+                    {
+                        "msvc": full_versions,
+                        "sdk": sdk_versions,
+                    },
+                    indent=2,
+                )
+            )
+            return
+
+        typer.echo(f"MSVC full versions: {' '.join(full_versions)}")
         typer.echo(f"SDK versions:  {' '.join(sdk_versions)}")
         return
 
@@ -81,20 +113,41 @@ def search(
     versions = get_available_versions(channel=channel, cache=cache)
     msvc_versions = sorted(versions["msvc"])
     sdk_versions = sorted(versions["sdk"])
+
+    if json_output:
+        import json
+
+        typer.echo(json.dumps(versions, indent=2))
+        return
+
     typer.echo(f"MSVC versions: {' '.join(msvc_versions)}")
     typer.echo(f"SDK versions:  {' '.join(sdk_versions)}")
 
 
 @app.command("install")
 def install(
-    msvc_version: Optional[str] = typer.Option(None, "--msvc-version", help="Force specific MSVC version"),
-    sdk_version: Optional[str] = typer.Option(None, "--sdk-version", help="Force specific Windows SDK version"),
-    channel: str = typer.Option("release", "--channel", help="Which channel to install (release|preview)"),
-    accept_license: bool = typer.Option(False, "--accept-license", help="Automatically accept license"),
+    msvc_version: Optional[str] = typer.Option(
+        None, "--msvc-version", help="Force specific MSVC version"
+    ),
+    sdk_version: Optional[str] = typer.Option(
+        None, "--sdk-version", help="Force specific Windows SDK version"
+    ),
+    channel: str = typer.Option(
+        "release", "--channel", help="Which channel to install (release|preview)"
+    ),
+    accept_license: bool = typer.Option(
+        False, "--accept-license", help="Automatically accept license"
+    ),
     no_cache: bool = typer.Option(False, "--no-cache", help="Disable downloads cache"),
-    host: str = typer.Option(DEFAULT_HOST, "--host", help=f"Host arch ({','.join(ALL_HOSTS)})"),
-    target: list[str] = typer.Option([], "--target", help=f"Target archs ({','.join(ALL_TARGETS)})"),
-    output: Optional[str] = typer.Option(None, "--output", help="Custom installation output directory"),
+    host: str = typer.Option(
+        DEFAULT_HOST, "--host", help=f"Host arch ({','.join(ALL_HOSTS)})"
+    ),
+    target: list[str] = typer.Option(
+        [], "--target", help=f"Target archs ({','.join(ALL_TARGETS)})"
+    ),
+    output: Optional[str] = typer.Option(
+        None, "--output", help="Custom installation output directory"
+    ),
 ) -> None:
     """Install MSVC & Windows SDK into a portable layout."""
     # compute flags
@@ -155,7 +208,9 @@ def register(
 
     installs = get_installed_versions()
     if not installs:
-        typer.echo("Error: No installations are recorded; nothing to register.", err=True)
+        typer.echo(
+            "Error: No installations are recorded; nothing to register.", err=True
+        )
         raise typer.Exit(1)
 
     selected_id = install_id
@@ -206,7 +261,9 @@ def deregister(
             state = _load_state()
         iid = state.get("current")
         if not iid:
-            typer.echo("Error: No current registration found; please specify --id", err=True)
+            typer.echo(
+                "Error: No current registration found; please specify --id", err=True
+            )
             raise typer.Exit(1)
 
     deregister_toolchain(iid)
@@ -216,8 +273,12 @@ def deregister(
 @app.command("install-from-lockfile")
 def install_from_lockfile(
     lockfile: str = typer.Argument(..., help="Path to portablemsvc.lock file"),
-    accept_license: bool = typer.Option(False, "--accept-license", help="Automatically accept license"),
-    output: Optional[str] = typer.Option(None, "--output", help="Custom installation output directory"),
+    accept_license: bool = typer.Option(
+        False, "--accept-license", help="Automatically accept license"
+    ),
+    output: Optional[str] = typer.Option(
+        None, "--output", help="Custom installation output directory"
+    ),
 ) -> None:
     """Install MSVC from a lockfile for reproducible builds."""
     from .controller import install_from_lockfile as install_from_lockfile_impl

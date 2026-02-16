@@ -37,7 +37,11 @@ MSDIA140_PATHS = {
 
 
 def _cleanup_unnecessary_files(
-    output_dir: Path, msvc_version: str, sdk_version: str, host: str, targets: List[str],
+    output_dir: Path,
+    msvc_version: str,
+    sdk_version: str,
+    host: str,
+    targets: List[str],
     lockfile: Optional["Lockfile"] = None,
 ):
     """
@@ -323,7 +327,9 @@ def install_msvc_components(
     # Perform installation steps
     _setup_debug_crt(output_dir, msvc_version, host, targets)
     _setup_msdia140(output_dir, msvc_version, host, targets)
-    _cleanup_unnecessary_files(output_dir, msvc_version, sdk_version, host, targets, lockfile)
+    _cleanup_unnecessary_files(
+        output_dir, msvc_version, sdk_version, host, targets, lockfile
+    )
     _create_setup_batch_files(output_dir, msvc_version, sdk_version, host, targets)
 
     # Save installation record
@@ -526,21 +532,21 @@ def _write_activation_scripts(
 
     # --- activate.xsh (xonsh) ---
     xsh = [
-        '#!/usr/bin/env xonsh',
-        '# Activate portable MSVC for xonsh',
-        '',
-        'import os',
-        'import json',
-        'import pathlib',
-        '',
-        'here = pathlib.Path(__file__).parent.resolve()',
-        '',
-        '# load JSON spec',
+        "#!/usr/bin/env xonsh",
+        "# Activate portable MSVC for xonsh",
+        "",
+        "import os",
+        "import json",
+        "import pathlib",
+        "",
+        "here = pathlib.Path(__file__).parent.resolve()",
+        "",
+        "# load JSON spec",
         f'spec_path = here / "env.json"',
-        'with open(spec_path) as f:',
-        '    spec = json.load(f)',
-        '',
-        '# set simple vars',
+        "with open(spec_path) as f:",
+        "    spec = json.load(f)",
+        "",
+        "# set simple vars",
     ]
     for key in (
         "VSCMD_ARG_HOST_ARCH",
@@ -555,14 +561,16 @@ def _write_activation_scripts(
         xsh.append(f'$"{key}" = spec["{key}"]')
     # VSCMD_ARG_TGT_ARCH is a list
     xsh.append('$"VSCMD_ARG_TGT_ARCH" = " ".join(spec["VSCMD_ARG_TGT_ARCH"])')
-    xsh.extend([
-        '',
-        '# prepend PATH/INCLUDE/LIB/LIBPATH',
-        'for var in ["PATH", "INCLUDE", "LIB", "LIBPATH"]:',
-        '    entries = spec.get(var, [])',
-        '    new_paths = [str(here / p) for p in entries]',
-        '    os.environ[var] = ";".join(new_paths) + ";" + os.environ.get(var, "")',
-        '',
-        'print(f"MSVC {$VCToolsVersion} / SDK {$WindowsSDKVersion} activated.")',
-    ])
+    xsh.extend(
+        [
+            "",
+            "# prepend PATH/INCLUDE/LIB/LIBPATH",
+            'for var in ["PATH", "INCLUDE", "LIB", "LIBPATH"]:',
+            "    entries = spec.get(var, [])",
+            "    new_paths = [str(here / p) for p in entries]",
+            '    os.environ[var] = ";".join(new_paths) + ";" + os.environ.get(var, "")',
+            "",
+            'print(f"MSVC {$VCToolsVersion} / SDK {$WindowsSDKVersion} activated.")',
+        ]
+    )
     (install_root / "activate.xsh").write_text("\n".join(xsh) + "\n", encoding="utf-8")
