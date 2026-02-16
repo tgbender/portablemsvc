@@ -273,7 +273,7 @@ def install_msvc_components(
     manifest_msvc_version: Optional[str] = None,
     sdk_manifest_version: Optional[str] = None,
     lockfile: Optional["Lockfile"] = None,
-) -> Dict[str, str]:
+) -> Dict[str, Any]:
     """
     Install MSVC components after extraction.
 
@@ -293,7 +293,8 @@ def install_msvc_components(
         lockfile: Optional Lockfile instance to record installation
 
     Returns:
-        Dictionary with detected 'msvc_version' and 'sdk_version'
+        Dictionary with detected 'msvc_version', 'sdk_version', 'install_id',
+        and 'tool_versions'
     """
     # ----------------------------------------------------------------
     # Step 1: discover the folder that actually contains link.exe
@@ -440,6 +441,7 @@ def _generate_env_spec(
     targets: List[str],
     msvc_version: str,
     sdk_version: str,
+    tool_versions: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """
     Build and write install_root/env.json describing all env vars
@@ -528,6 +530,10 @@ def _generate_env_spec(
         ]
     spec["LIB"] = lib_entries
     spec["LIBPATH"] = lib_entries.copy()
+
+    # Add tool versions if available
+    if tool_versions:
+        spec["TOOL_VERSIONS"] = tool_versions
 
     # persist JSON
     install_root.mkdir(parents=True, exist_ok=True)

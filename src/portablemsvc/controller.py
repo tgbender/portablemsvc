@@ -178,6 +178,7 @@ def install_msvc(
         targets,
         install_result["msvc_internal_version"],
         install_result["sdk_version"],
+        tool_versions=install_result.get("tool_versions"),
     )
     _write_activation_scripts(output_dir, spec)
 

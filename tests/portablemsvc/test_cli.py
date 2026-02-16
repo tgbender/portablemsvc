@@ -209,23 +209,29 @@ def test_compile_with_windows_headers(system_install, tmp_path):
 
 @pytest.mark.cli
 def test_compiler_version_matches_env(system_install):
-    """Verify cl.exe executable version matches env.json VCToolsVersion."""
-    import subprocess
+    """Verify TOOL_VERSIONS in env.json matches expected format.
 
+    Tool versions should contain cl.exe with 19.x (compiler ABI)
+    and other tools with matching minor/build numbers.
+    """
     env = json.loads((system_install["install_path"] / "env.json").read_text())
 
-    # Get file version from cl.exe directly
-    cl_path = Path(env["CC"])
-    result = subprocess.run(
-        ["powershell", "-Command",
-         f"(Get-ItemProperty '{cl_path}').VersionInfo.FileVersion"],
-        capture_output=True, text=True, check=True
-    )
-    file_version = result.stdout.strip()
+    assert "TOOL_VERSIONS" in env, "TOOL_VERSIONS not found in env.json"
+    tool_versions = env["TOOL_VERSIONS"]
 
-    # VCToolsVersion is like "14.44.35207", file version is like "14.44.35207.0"
-    assert env["VCToolsVersion"] in file_version, (
-        f"VCToolsVersion {env['VCToolsVersion']} not in cl.exe file version {file_version}"
+    assert "cl.exe" in tool_versions, "cl.exe version not recorded"
+    cl_version = tool_versions["cl.exe"]
+
+    # cl.exe uses compiler ABI version (19.x)
+    assert cl_version.startswith("19."), f"Expected cl.exe 19.x, got {cl_version}"
+
+    # Extract minor version from cl.exe (e.g., "44" from "19.44.35222.0")
+    cl_minor = cl_version.split(".")[1]
+    vc_minor = env["VCToolsVersion"].split(".")[1]
+
+    # Minor versions should match between compiler and toolset
+    assert cl_minor == vc_minor, (
+        f"Version mismatch: cl.exe minor {cl_minor} != VCToolsVersion minor {vc_minor}"
     )
 
 
