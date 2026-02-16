@@ -1,5 +1,7 @@
 import logging
 
+from .config import first as _first
+
 logger = logging.getLogger(__name__)
 
 
@@ -111,8 +113,3 @@ def resolve_redist_packages(packages, msvc_packages, msvc_full_ver, targets):
         resolved_packages.append(pkg)  # Keep it in the list anyway
 
     return resolved_packages
-
-
-def _first(items, cond=lambda x: True):
-    """Find the first item that matches the condition."""
-    return next((item for item in items if cond(item)), None)

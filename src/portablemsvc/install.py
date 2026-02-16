@@ -336,13 +336,6 @@ def install_msvc_components(
         targets=targets,
     )
 
-    if lockfile is not None:
-        # Generate and record env spec
-        spec = _generate_env_spec(
-            output_dir, host, targets, msvc_version, sdk_version
-        )
-        lockfile.set_env_spec(spec)
-
     return {
         "msvc_manifest_version": manifest_ver,
         "msvc_internal_version": internal_msvc,

@@ -7,16 +7,12 @@ from .config import (
     MSVC_HOST_TARGET_SUFFIX,
     WIN10_SDK_PREFIX,
     WIN11_SDK_PREFIX,
+    first as _first,
 )
 
 logger = logging.getLogger(__name__)
 
 __all__ = ["parse_vs_manifest"]
-
-
-def _first(items, cond=lambda x: True):
-    """Find the first item that matches the condition."""
-    return next((item for item in items if cond(item)), None)
 
 
 def _build_package_lookup(vs_manifest):
@@ -277,17 +273,6 @@ def parse_vs_manifest(
             "msvc_payloads": msvc_payloads,
             "sdk_payloads": sdk_payloads,
         }
-
-        # Return the parsed information
-        # return {
-        #    "msvc_versions": msvc_versions,
-        #    "sdk_versions": sdk_versions,
-        #    "selected_msvc": selected_msvc,
-        #    "selected_sdk": selected_sdk,
-        #    "msvc_packages": msvc_packages,
-        #    "sdk_packages": sdk_packages,
-        #    "packages": packages,
-        # }
 
     except Exception as e:
         logger.error(f"Error parsing VS manifest: {e}")

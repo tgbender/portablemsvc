@@ -137,9 +137,59 @@ class Lockfile:
         """Record a file or directory that was removed during cleanup."""
         self.data["removed_files"].append(str(path))
 
-    def set_env_spec(self, spec: Dict[str, Any]) -> None:
-        """Record the environment specification."""
-        self.data["env_spec"] = spec
+    def set_env_spec(self, spec: Dict[str, Any], install_root: Optional[Path] = None) -> None:
+        """Record the environment specification with portable paths.
+
+        Args:
+            spec: The env spec dict (may contain absolute paths)
+            install_root: The installation root directory (to make paths portable)
+        """
+        import copy
+
+        portable_spec = copy.deepcopy(spec)
+
+        if install_root is not None:
+            # Get user profile path for substitution
+            home = Path.home()
+            home_str = str(home)
+            root_str = str(install_root.resolve())
+
+            def make_portable(path_str: str) -> str:
+                """Convert path to portable format.
+
+                Priority:
+                1. If under install_root, make relative (for portability)
+                2. If under home directory, use %USERPROFILE%
+                3. Otherwise keep as-is (absolute path elsewhere)
+                """
+                if not isinstance(path_str, str):
+                    return path_str
+                # If under install_root, make relative (checked first since install_root is typically under home)
+                if path_str.startswith(root_str):
+                    rel = path_str[len(root_str):]
+                    if rel.startswith("\\") or rel.startswith("/"):
+                        rel = rel[1:]
+                    return rel if rel else "."
+                # If path starts with home directory, use %USERPROFILE%
+                if path_str.startswith(home_str):
+                    rel = path_str[len(home_str):]
+                    if rel.startswith("\\") or rel.startswith("/"):
+                        rel = rel[1:]
+                    return f"%USERPROFILE%\\{rel}" if rel else "%USERPROFILE%"
+                # Otherwise keep as-is (absolute path elsewhere)
+                return path_str
+
+            # Convert scalar path fields
+            for key in ["CC", "CXX", "AR", "VCINSTALLDIR", "VCToolsInstallDir", "WindowsSDKDir"]:
+                if key in portable_spec:
+                    portable_spec[key] = make_portable(portable_spec[key])
+
+            # Convert list path fields
+            for key in ["PATH", "INCLUDE", "LIB", "LIBPATH"]:
+                if key in portable_spec and isinstance(portable_spec[key], list):
+                    portable_spec[key] = [make_portable(p) for p in portable_spec[key]]
+
+        self.data["env_spec"] = portable_spec
 
     def set_install_id(self, install_id: str) -> None:
         """Record the installation ID."""
@@ -148,6 +198,51 @@ class Lockfile:
     def to_dict(self) -> Dict[str, Any]:
         """Return the lockfile as a dictionary."""
         return self.data
+
+    def get_absolute_env_spec(self, install_root: Path) -> Dict[str, Any]:
+        """Generate absolute env_spec from portable paths.
+
+        Expands %USERPROFILE% and relative paths to absolute.
+
+        Args:
+            install_root: The installation root directory
+
+        Returns:
+            env_spec dict with absolute paths
+        """
+        import copy
+
+        portable_spec = self.data.get("env_spec", {})
+        if not portable_spec:
+            return {}
+
+        abs_spec = copy.deepcopy(portable_spec)
+        root = install_root.resolve()
+        home = Path.home()
+
+        def expand_path(path_str: str) -> str:
+            """Expand %USERPROFILE% and relative paths."""
+            if not isinstance(path_str, str):
+                return path_str
+            # Expand %USERPROFILE%
+            if "%USERPROFILE%" in path_str:
+                path_str = path_str.replace("%USERPROFILE%", str(home))
+            # If relative, join with install_root
+            if not Path(path_str).is_absolute():
+                path_str = str(root / path_str)
+            return path_str
+
+        # Convert scalar path fields
+        for key in ["CC", "CXX", "AR", "VCINSTALLDIR", "VCToolsInstallDir", "WindowsSDKDir"]:
+            if key in abs_spec:
+                abs_spec[key] = expand_path(abs_spec[key])
+
+        # Convert list path fields
+        for key in ["PATH", "INCLUDE", "LIB", "LIBPATH"]:
+            if key in abs_spec and isinstance(abs_spec[key], list):
+                abs_spec[key] = [expand_path(p) for p in abs_spec[key]]
+
+        return abs_spec
 
     def write(self, path: Path) -> None:
         """Write the lockfile to disk."""

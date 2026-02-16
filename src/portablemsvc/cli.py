@@ -213,5 +213,33 @@ def deregister(
     typer.echo(f"Deregistered toolchain {iid} from HKCU\\Environment.")
 
 
+@app.command("install-from-lockfile")
+def install_from_lockfile(
+    lockfile: str = typer.Argument(..., help="Path to portablemsvc.lock file"),
+    accept_license: bool = typer.Option(False, "--accept-license", help="Automatically accept license"),
+    output: Optional[str] = typer.Option(None, "--output", help="Custom installation output directory"),
+) -> None:
+    """Install MSVC from a lockfile for reproducible builds."""
+    from .controller import install_from_lockfile as install_from_lockfile_impl
+
+    lic_url = "https://visualstudio.microsoft.com/license-terms/vs/"
+    typer.echo(f"License text available at:\n  {lic_url}\n")
+    accepted = accept_license
+    if not accepted:
+        ans = typer.prompt("Do you accept the license terms? [y/N]", default="N")
+        accepted = ans.strip().lower() in ("y", "yes")
+    if not accepted:
+        typer.echo("Error: License not accepted. Aborting.", err=True)
+        raise typer.Exit(1)
+
+    result = install_from_lockfile_impl(
+        lockfile_path=Path(lockfile),
+        output_dir=Path(output) if output else None,
+        accept_license=accepted,
+    )
+    typer.echo(f"Installed to: {result['path']}")
+    typer.echo(f"Install ID: {result['install_id']}")
+
+
 if __name__ == "__main__":
     app()

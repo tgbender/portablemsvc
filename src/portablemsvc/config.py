@@ -37,3 +37,8 @@ MSVC_PACKAGE_PREFIX = "microsoft.vc."
 MSVC_HOST_TARGET_SUFFIX = ".tools.hostx64.targetx64.base"
 WIN10_SDK_PREFIX = "microsoft.visualstudio.component.windows10sdk."
 WIN11_SDK_PREFIX = "microsoft.visualstudio.component.windows11sdk."
+
+
+def first(items, cond=lambda x: True):
+    """Find the first item that matches the condition."""
+    return next((item for item in items if cond(item)), None)
