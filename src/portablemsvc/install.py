@@ -523,3 +523,46 @@ def _write_activation_scripts(
         'Write-Host "MSVC $($env:VCToolsVersion) / SDK $($env:WindowsSDKVersion) activated."',
     ]
     (install_root / "activate.ps1").write_text("\n".join(ps) + "\n", encoding="utf-8")
+
+    # --- activate.xsh (xonsh) ---
+    xsh = [
+        '#!/usr/bin/env xonsh',
+        '# Activate portable MSVC for xonsh',
+        '',
+        'import os',
+        'import json',
+        'import pathlib',
+        '',
+        'here = pathlib.Path(__file__).parent.resolve()',
+        '',
+        '# load JSON spec',
+        f'spec_path = here / "env.json"',
+        'with open(spec_path) as f:',
+        '    spec = json.load(f)',
+        '',
+        '# set simple vars',
+    ]
+    for key in (
+        "VSCMD_ARG_HOST_ARCH",
+        "VCToolsVersion",
+        "WindowsSDKVersion",
+        "CC",
+        "CXX",
+        "AR",
+        "MAKE",
+        "VCINSTALLDIR",
+    ):
+        xsh.append(f'$"{key}" = spec["{key}"]')
+    # VSCMD_ARG_TGT_ARCH is a list
+    xsh.append('$"VSCMD_ARG_TGT_ARCH" = " ".join(spec["VSCMD_ARG_TGT_ARCH"])')
+    xsh.extend([
+        '',
+        '# prepend PATH/INCLUDE/LIB/LIBPATH',
+        'for var in ["PATH", "INCLUDE", "LIB", "LIBPATH"]:',
+        '    entries = spec.get(var, [])',
+        '    new_paths = [str(here / p) for p in entries]',
+        '    os.environ[var] = ";".join(new_paths) + ";" + os.environ.get(var, "")',
+        '',
+        'print(f"MSVC {$VCToolsVersion} / SDK {$WindowsSDKVersion} activated.")',
+    ])
+    (install_root / "activate.xsh").write_text("\n".join(xsh) + "\n", encoding="utf-8")
