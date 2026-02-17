@@ -46,7 +46,8 @@ def test_compile_with_system_install(system_install, tmp_path):
     )
 
     out_exe = tmp_path / "test.exe"
-    cl["/nologo", f"/Fe:{out_exe}", str(test_c)]()
+    out_obj = tmp_path / "test.obj"
+    cl["/nologo", f"/Fe:{out_exe}", f"/Fo:{out_obj}", str(test_c)]()
 
     assert out_exe.exists()
     assert local[str(out_exe)]().strip() == "OK"
@@ -127,7 +128,8 @@ def test_compile_cpp_with_system_install(system_install, tmp_path):
     )
 
     out_exe = tmp_path / "test.exe"
-    cl["/nologo", f"/Fe:{out_exe}", str(test_cpp)]()
+    out_obj = tmp_path / "test.obj"
+    cl["/nologo", f"/Fe:{out_exe}", f"/Fo:{out_obj}", str(test_cpp)]()
 
     assert out_exe.exists()
     assert local[str(out_exe)]().strip() == "CPP_OK"
@@ -201,7 +203,8 @@ def test_compile_with_windows_headers(system_install, tmp_path):
     )
 
     out_exe = tmp_path / "test.exe"
-    cl["/nologo", f"/Fe:{out_exe}", str(test_c)]()
+    out_obj = tmp_path / "test.obj"
+    cl["/nologo", f"/Fe:{out_exe}", f"/Fo:{out_obj}", str(test_c)]()
 
     assert out_exe.exists()
     assert local[str(out_exe)]().strip() == "WIN_OK"
