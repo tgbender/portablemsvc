@@ -56,6 +56,7 @@ Run `portablemsvc --help` to view global options and subcommands.
 - `register` - Register toolchain into HKCU\Environment
 - `deregister` - Deregister toolchain from HKCU\Environment
 - `install-from-lockfile` - Reproducible install from a lockfile
+- `get-path` - Get install path for build scripts
 
 #### Search Available Versions
 
@@ -189,6 +190,30 @@ Displays for each install:
    portablemsvc deregister
    ```
 
+## Build Script Integration
+
+The `get-path` command outputs the installation root for use in build scripts:
+
+```bash
+# Get path for latest install
+MSVC_ROOT=$(portablemsvc get-path)
+
+# Get path by lockfile (matches MSVC/SDK versions)
+MSVC_ROOT=$(portablemsvc get-path --lockfile ./portablemsvc.lock)
+
+# Get path by install ID
+MSVC_ROOT=$(portablemsvc get-path --id <install_id>)
+
+# Use in build
+source "$MSVC_ROOT/activate.cmd"
+nmake /f Makefile
+```
+
+The `env.json` file contains all environment variables needed for building:
+- `CC`, `CXX`, `AR` - Compiler paths
+- `PATH`, `INCLUDE`, `LIB` - Search paths
+- `TOOL_VERSIONS` - PE file versions of tools
+
 ## CI/CD Usage
 
 For reproducible builds in CI, use a lockfile:
@@ -212,14 +237,19 @@ portablemsvc install-from-lockfile portablemsvc.lock --accept-license
 - run: portablemsvc install-from-lockfile portablemsvc.lock --accept-license
   env:
     PORTABLEMSVC_CACHE: D:\cache\portablemsvc
-- run: cargo build --release
+# Get the path and use it
+- run: |
+    MSVC_PATH=$(portablemsvc get-path --lockfile portablemsvc.lock)
+    "$MSVC_PATH/activate.cmd" && cargo build --release
+  shell: bash
 ```
 
 ## Contributing
 
 Contributions and issues are welcome!
 
-- Run `flake8` and `pytest` to ensure style and tests pass
+- Run `mise run lint` to check code style and types
+- Run `mise run test` to run the test suite
 - Keep PRs focused on a single feature or bugfix
 - Add tests for all new behavior
 
@@ -236,7 +266,26 @@ By using this tool to fetch, install, or manage those toolchains, you agree to c
 
 Huge thanks to [@mmozeiko](https://github.com/mmozeiko) for foundational work on portable MSVC tooling inspiration.
 
-## TODO / Testing 🔍
+## Testing 🔍
+
+Run the test suite:
+
+```bash
+# Fast tests (no downloads)
+mise run test
+
+# Full tests including installs (~20GB downloads)
+mise run test -- --run-installs
+```
+
+Test coverage includes:
+- C/C++ compilation with Windows SDK headers
+- Static library creation with `lib.exe`
+- Tool version capture (PE file metadata)
+- Environment variable verification
+- Lockfile-based reproducible installs
+
+## TODO
 
 - Verify that `portablemsvc install --target=x64,arm64,arm`
   - all specified host/target tool directories appear under `VC/Tools/MSVC/.../bin`

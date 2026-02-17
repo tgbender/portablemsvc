@@ -302,5 +302,73 @@ def install_from_lockfile(
     typer.echo(f"Install ID: {result['install_id']}")
 
 
+@app.command("get-path")
+def get_path(
+    install_id: Optional[str] = typer.Option(
+        None, "--id", help="Installation ID (omit for latest)"
+    ),
+    lockfile: Optional[str] = typer.Option(
+        None, "--lockfile", help="Path to portablemsvc.lock to find matching install"
+    ),
+) -> None:
+    """Output the installation root path for use in build scripts."""
+    import logging
+
+    from .install_status import get_installed_versions
+    from .lockfile import Lockfile
+
+    # Suppress filelock logging to keep stdout clean
+    logging.getLogger("filelock").setLevel(logging.WARNING)
+
+    if lockfile:
+        # Read lockfile to find matching installed version
+        lf = Lockfile.load(Path(lockfile))
+        lf_data = lf.to_dict()
+        resolved = lf_data.get("resolved", {})
+        msvc_ver = resolved.get("msvc", {}).get("full_version")
+        sdk_ver = resolved.get("sdk", {}).get("version")
+
+        installs = get_installed_versions()
+        for iid, rec in installs.items():
+            if rec.get("msvc_version") == msvc_ver and rec.get("sdk_version") == sdk_ver:
+                typer.echo(rec["path"])
+                return
+
+        typer.echo(
+            f"Error: No install found for lockfile (MSVC {msvc_ver}, SDK {sdk_ver})",
+            err=True
+        )
+        raise typer.Exit(1)
+
+    # Otherwise look up by ID or latest
+    installs = get_installed_versions()
+    if not installs:
+        typer.echo("Error: No installations found", err=True)
+        raise typer.Exit(1)
+
+    selected_id = install_id
+    if not selected_id:
+        # Pick the installation with the highest MSVC version (newest)
+        def version_key(item: tuple[str, dict]) -> tuple[int, ...]:
+            _, rec = item
+            ver = rec.get("msvc_version", "")
+            return tuple(int(p) for p in ver.split(".") if p.isdigit())
+
+        selected_id, _ = max(installs.items(), key=version_key)
+
+    rec = installs.get(selected_id)
+    if not rec:
+        typer.echo(f"Error: No installation with ID '{selected_id}'", err=True)
+        raise typer.Exit(1)
+
+    install_root = rec.get("path")
+    if not install_root:
+        typer.echo(f"Error: No install path recorded for ID '{selected_id}'", err=True)
+        raise typer.Exit(1)
+
+    # Output just the path for scripting
+    typer.echo(install_root)
+
+
 if __name__ == "__main__":
     app()

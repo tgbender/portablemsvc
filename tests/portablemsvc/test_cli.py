@@ -266,3 +266,37 @@ def test_ar_lib_tool_works(system_install, tmp_path):
 
     assert lib_file.exists()
     assert lib_file.stat().st_size > 0
+
+
+@pytest.mark.cli
+def test_get_path_latest(portablemsvc, system_install):
+    """get-path without args returns latest install path."""
+    result = portablemsvc["get-path"]()
+    path = result.strip()
+
+    # Should return a valid path
+    assert Path(path).exists()
+    # Should match the system install
+    assert path == str(system_install["install_path"])
+
+
+@pytest.mark.cli
+def test_get_path_by_id(portablemsvc, system_install):
+    """get-path --id returns specific install path."""
+    install_id = system_install["install_id"]
+    result = portablemsvc["get-path", "--id", install_id]()
+    path = result.strip()
+
+    assert Path(path).exists()
+    assert path == str(system_install["install_path"])
+
+
+@pytest.mark.cli
+def test_get_path_json_format(portablemsvc):
+    """get-path returns clean output for scripting."""
+    result = portablemsvc["get-path"]()
+
+    # Should be a single line with just the path
+    lines = result.strip().split("\n")
+    assert len(lines) == 1
+    assert Path(lines[0]).exists()
