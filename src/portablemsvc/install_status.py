@@ -8,12 +8,7 @@ import tempfile
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
-try:
-    import filelock
-
-    HAS_FILELOCK = True
-except ImportError:
-    HAS_FILELOCK = False
+from filelock import FileLock
 
 from .config import CONFIG_DIR
 
@@ -78,10 +73,9 @@ def get_installed_versions(db_path: Optional[Path] = None) -> Dict[str, Dict[str
     lock = None
 
     try:
-        if HAS_FILELOCK:
-            _cleanup_stale_lock(lock_file)
-            lock = filelock.FileLock(lock_file, timeout=LOCK_TIMEOUT)
-            lock.acquire()
+        _cleanup_stale_lock(lock_file)
+        lock = FileLock(lock_file, timeout=LOCK_TIMEOUT)
+        lock.acquire()
 
         return json.loads(db_path.read_text())
     except (json.JSONDecodeError, IOError) as e:
@@ -133,10 +127,9 @@ def save_installed_version(
     lock = None
 
     try:
-        if HAS_FILELOCK:
-            _cleanup_stale_lock(lock_file)
-            lock = filelock.FileLock(lock_file, timeout=LOCK_TIMEOUT)
-            lock.acquire()
+        _cleanup_stale_lock(lock_file)
+        lock = FileLock(lock_file, timeout=LOCK_TIMEOUT)
+        lock.acquire()
 
         # Get existing installations
         installations = {}
@@ -235,10 +228,9 @@ def remove_installation(
     lock = None
 
     try:
-        if HAS_FILELOCK:
-            _cleanup_stale_lock(lock_file)
-            lock = filelock.FileLock(lock_file, timeout=LOCK_TIMEOUT)
-            lock.acquire()
+        _cleanup_stale_lock(lock_file)
+        lock = FileLock(lock_file, timeout=LOCK_TIMEOUT)
+        lock.acquire()
 
         # Get existing installations
         if not db_path.exists():

@@ -2,7 +2,7 @@ import pytest
 from portablemsvc.controller import install_msvc
 
 
-@pytest.mark.integration
+@pytest.mark.network_heavy
 def test_full_msvc_zip_extract(tmp_path):
     # Run the full install pipeline (download → extract → layout)
     result = install_msvc(

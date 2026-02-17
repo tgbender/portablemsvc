@@ -17,7 +17,7 @@ from .install_status import (
     get_installed_versions,
     save_installed_version,
 )
-from .install import _generate_env_spec, _write_activation_scripts
+from .install import _generate_env_spec, _write_activation_scripts, _detect_versions
 from .lockfile import Lockfile
 from .extract import _extract_zip_file, _extract_msi_file
 
@@ -208,29 +208,40 @@ def install_from_lockfile(
 ) -> Dict[str, Any]:
     """
     Install MSVC from an existing lockfile for reproducible builds.
-
-    This bypasses manifest parsing and uses the exact URLs and hashes
-    recorded in the lockfile.
+    Uses the exact URLs and hashes recorded in the lockfile.
     """
     if not accept_license:
         raise RuntimeError("License not accepted; installation aborted.")
 
-    # Load the lockfile
     logger.info(f"Loading lockfile from: {lockfile_path}")
     lockfile = Lockfile.load(lockfile_path)
     lock_data = lockfile.to_dict()
 
+    resolved = lock_data.get("resolved", {})
+    msvc_full_ver = resolved.get("msvc", {}).get("full_version", "unknown")
+    sdk_ver = resolved.get("sdk", {}).get("version", "unknown")
+    host = lock_data.get("host", "x64")
+    targets = lock_data.get("targets", [host])
+
     # Determine output directory
     if output_dir is None:
-        resolved = lock_data.get("resolved", {})
-        msvc_ver = resolved.get("msvc", {}).get("full_version", "unknown")
-        sdk_ver = resolved.get("sdk", {}).get("version", "unknown")
-        output_dir = Path(DATA_DIR) / f"msvc-{msvc_ver}_sdk-{sdk_ver}"
-    output_dir.mkdir(parents=True, exist_ok=True)
+        output_dir = Path(DATA_DIR) / f"msvc-{msvc_full_ver}_sdk-{sdk_ver}"
 
+    # Check if already installed (same as normal flow)
+    existing_id = is_version_installed(msvc_full_ver, sdk_ver, host, targets)
+    if existing_id:
+        inst = get_installed_versions()[existing_id]
+        logger.info(f"Already installed: {existing_id} -> {inst['path']}")
+        return {
+            "already_installed": True,
+            "install_id": existing_id,
+            **inst,
+        }
+
+    output_dir.mkdir(parents=True, exist_ok=True)
     logger.info(f"Installing to: {output_dir}")
 
-    # Build download list from lockfile
+    # Build download list from lockfile entries
     files_to_download = {}
     for file_entry in lock_data.get("files", []):
         filename = file_entry["filename"]
@@ -240,74 +251,49 @@ def install_from_lockfile(
             "name": filename,
         }
 
-    # Download all files
+    # Download all files (reuse existing download infrastructure)
     logger.info(f"Downloading {len(files_to_download)} files from lockfile")
     downloaded_files = download_files(files_to_download, cache_dir=Path(CACHE_DIR))
 
-    # Extract files to recorded paths
-    extraction_sequence = lock_data.get("extraction_sequence", [])
-    logger.info(f"Extracting {len(extraction_sequence)} archives")
+    # Build files_map compatible with extract_package_files
+    # (maps original filename -> local cached path, same shape as normal flow)
+    files_map: Dict[str, Path] = {}
+    for filename, cached_path in downloaded_files.items():
+        files_map[filename] = cached_path
 
-    for seq_entry in extraction_sequence:
-        filename = seq_entry["filename"]
-        file_entry = lockfile.get_file_entry(filename)
-        if not file_entry:
-            continue
+    # Extract using the same function as the normal flow
+    logger.info(f"Extracting all packages to: {output_dir}")
+    extracted = extract_package_files(files_map, output_dir)
 
-        file_type = file_entry.get("type", "")
-        cached_path = downloaded_files.get(filename)
-        if not cached_path:
-            logger.warning(f"File not found in downloads: {filename}")
-            continue
-
-        if file_type in ("zip", "vsix"):
-            # For ZIPs, extract normally and verify paths match
-            _extract_zip_file(cached_path, output_dir)
-        elif file_type == "msi":
-            # For MSIs, extract normally
-            _extract_msi_file(cached_path, output_dir)
-
-    # Remove files that were cleaned up in original install
-    removed_files = lock_data.get("removed_files", [])
-    if removed_files:
-        logger.info(f"Removing {len(removed_files)} unnecessary files/directories")
-        for rel_path in removed_files:
-            full_path = output_dir / rel_path
-            if full_path.is_dir():
-                shutil.rmtree(full_path, ignore_errors=True)
-            elif full_path.is_file():
-                full_path.unlink(missing_ok=True)
-
-    # Generate env.json with absolute paths
-    spec = lockfile.get_absolute_env_spec(output_dir)
-    if spec:
-        (output_dir / "env.json").write_text(json.dumps(spec, indent=2))
-        _write_activation_scripts(output_dir, spec)
-
-    # Save installation record
-    resolved = lock_data.get("resolved", {})
-    msvc_ver = resolved.get("msvc", {}).get("full_version", "unknown")
-    sdk_ver = resolved.get("sdk", {}).get("version", "unknown")
-    host = lock_data.get("host", "x64")
-    targets = lock_data.get("targets", [host])
-
-    install_id = save_installed_version(
-        output_dir=output_dir,
-        manifest_msvc_version=msvc_ver,
-        internal_msvc_version=msvc_ver,
-        sdk_version=sdk_ver,
-        host=host,
-        targets=targets,
+    # Post-extract install (debug CRT, msdia140, cleanup, batch files, tool versions)
+    install_result = install_msvc_components(
+        output_dir,
+        extracted,
+        host,
+        targets,
+        manifest_msvc_version=msvc_full_ver,
+        sdk_manifest_version=sdk_ver,
     )
+
+    # Generate env spec and activation scripts (same as normal flow)
+    spec = _generate_env_spec(
+        output_dir,
+        host,
+        targets,
+        install_result["msvc_internal_version"],
+        install_result["sdk_version"],
+        tool_versions=install_result.get("tool_versions"),
+    )
+    _write_activation_scripts(output_dir, spec)
 
     # Copy lockfile to output directory
     shutil.copy2(lockfile_path, output_dir / "portablemsvc.lock")
 
     return {
         "already_installed": False,
-        "install_id": install_id,
+        "install_id": install_result["install_id"],
         "path": str(output_dir),
-        "msvc_manifest_version": msvc_ver,
-        "msvc_internal_version": msvc_ver,
-        "sdk_version": sdk_ver,
+        "msvc_manifest_version": msvc_full_ver,
+        "msvc_internal_version": install_result["msvc_internal_version"],
+        "sdk_version": install_result["sdk_version"],
     }

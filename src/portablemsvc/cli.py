@@ -224,7 +224,7 @@ def register(
 
         selected_id, _ = max(installs.items(), key=version_key)
 
-    rec = installs.get(selected_id)
+    rec: Optional[dict] = installs.get(selected_id)
     if not rec:
         typer.echo(f"Error: No installation with ID '{selected_id}'", err=True)
         raise typer.Exit(1)
@@ -329,9 +329,9 @@ def get_path(
         sdk_ver = resolved.get("sdk", {}).get("version")
 
         installs = get_installed_versions()
-        for iid, rec in installs.items():
-            if rec.get("msvc_version") == msvc_ver and rec.get("sdk_version") == sdk_ver:
-                typer.echo(rec["path"])
+        for iid, install_rec in installs.items():
+            if install_rec.get("msvc_version") == msvc_ver and install_rec.get("sdk_version") == sdk_ver:
+                typer.echo(install_rec["path"])
                 return
 
         typer.echo(
@@ -346,17 +346,19 @@ def get_path(
         typer.echo("Error: No installations found", err=True)
         raise typer.Exit(1)
 
-    selected_id = install_id
-    if not selected_id:
+    selected_id: str
+    if install_id:
+        selected_id = install_id
+    else:
         # Pick the installation with the highest MSVC version (newest)
         def version_key(item: tuple[str, dict]) -> tuple[int, ...]:
-            _, rec = item
-            ver = rec.get("msvc_version", "")
+            _, install_rec = item
+            ver = install_rec.get("msvc_version", "")
             return tuple(int(p) for p in ver.split(".") if p.isdigit())
 
         selected_id, _ = max(installs.items(), key=version_key)
 
-    rec = installs.get(selected_id)
+    rec: Optional[dict] = installs.get(selected_id)
     if not rec:
         typer.echo(f"Error: No installation with ID '{selected_id}'", err=True)
         raise typer.Exit(1)

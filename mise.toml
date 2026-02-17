@@ -96,14 +96,16 @@ run = "taplo fmt --check **/*.toml"
 
 ### TESTS
 [tasks.test]
-description = "Run main tests"
+description = "Run fast tests (excludes slow_install and integration tests)"
 run = "uv run pytest"
 
-[tasks.test-]
+[tasks.test-most]
+description = "Run most tests including slow_installs but not network_heavy"
+run = "uv run pytest --run-installs -m 'not network_heavy'"
 
 [tasks.test-all]
-description = "Run all tests including guarded ones (same for now to be added to later)"
-run = "uv run pytest"
+description = "Run all tests including integration (downloads ~20GB)"
+run = "uv run pytest --run-installs"
 
 ### OTHER
 [tasks.check-venv]

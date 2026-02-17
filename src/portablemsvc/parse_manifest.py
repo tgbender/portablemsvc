@@ -124,8 +124,11 @@ def _get_sdk_package_info(packages, sdk_pid):
     try:
         sdk_pkg = packages[sdk_pid.lower()][0]
         if "dependencies" in sdk_pkg and sdk_pkg["dependencies"]:
-            dep_id = _first(sdk_pkg["dependencies"]).lower()
-            if dep_id in packages:
+            dep_id = _first(sdk_pkg["dependencies"])
+            if dep_id:
+                dep_id_lower = dep_id.lower()
+                if dep_id_lower in packages:
+                    return packages[dep_id_lower][0]
                 return packages[dep_id][0]
         return None
     except (KeyError, IndexError) as e:

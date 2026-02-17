@@ -1,23 +1,20 @@
 """Tests that create session-scoped installs. Skipped by default."""
 
 import json
+import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 import pytest
 from plumbum import local
 
-
-# Session state shared with conftest.py
-install_state: Dict[str, Optional[Dict[str, Any]]] = {
-    "normal_test_install": None,
-    "lockfile_test_install": None,
-}
+# Access the shared install_state from conftest
+import conftest
+install_state: Dict[str, Optional[Dict[str, Any]]] = conftest.install_state
 
 pytestmark = pytest.mark.slow_install  # All tests in this file are slow
 
 
-@pytest.mark.integration
 def test_install_normal(portablemsvc_exe, normal_install_dir: Path):
     """
     Create normal install for session.
@@ -60,7 +57,6 @@ def test_install_normal(portablemsvc_exe, normal_install_dir: Path):
     }
 
 
-@pytest.mark.integration
 def test_install_from_lockfile(portablemsvc_exe, lockfile_install_dir: Path):
     """
     Create lockfile install for session.

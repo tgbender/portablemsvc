@@ -33,7 +33,6 @@ classifiers = [
   "Intended Audience :: System Administrators",
   "Operating System :: Microsoft :: Windows",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -45,9 +44,9 @@ classifiers = [
 testpaths = ["tests"]
 python_files = "test_*.py"
 markers = [
-  "slow_install: marks tests that download and install MSVC (very slow, SSD-intensive)",
+  "slow_install: marks tests that download and install MSVC via CLI (very slow, ~10GB)",
   "cli: marks tests that invoke portablemsvc CLI",
-  "integration: marks tests that integrate multiple components (slow)",
+  "network_heavy: marks tests that directly download MSVC packages (huge bandwidth, ~10GB)",
 ]
 
 [tool.mypy]

@@ -27,7 +27,7 @@ def pytest_collection_modifyitems(config, items):
     if not config.getoption("--run-installs"):
         skip_install = pytest.mark.skip(reason="use --run-installs to run")
         for item in items:
-            if "slow_install" in item.keywords or "integration" in item.keywords:
+            if "slow_install" in item.keywords or "network_heavy" in item.keywords:
                 item.add_marker(skip_install)
 
 

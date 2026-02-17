@@ -210,6 +210,7 @@ nmake /f Makefile
 ```
 
 The `env.json` file contains all environment variables needed for building:
+
 - `CC`, `CXX`, `AR` - Compiler paths
 - `PATH`, `INCLUDE`, `LIB` - Search paths
 - `TOOL_VERSIONS` - PE file versions of tools
@@ -274,11 +275,15 @@ Run the test suite:
 # Fast tests (no downloads)
 mise run test
 
-# Full tests including installs (~20GB downloads)
-mise run test -- --run-installs
+# Most tests including slow_installs but not integration (~20GB downloads)
+mise run test-most
+
+# Full tests including integration (~20GB downloads)
+mise run test-all
 ```
 
 Test coverage includes:
+
 - C/C++ compilation with Windows SDK headers
 - Static library creation with `lib.exe`
 - Tool version capture (PE file metadata)
