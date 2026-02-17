@@ -54,12 +54,31 @@ def _extract_zip_file(
 
 def _extract_msi_file(msi_path: Path, destination: Path) -> bool:
     logger.info(f"Extracting MSI: {msi_path} → {destination}")
+
+    # Count files before extraction
+    files_before = set(destination.rglob("*")) if destination.exists() else set()
+
     try:
         msiexec = local["msiexec.exe"]
         msiexec[
             "/a", str(msi_path), "/quiet", "/qn", f"TARGETDIR={destination.resolve()}"
         ]()
+
+        # Verify extraction actually created files
+        files_after = set(destination.rglob("*")) if destination.exists() else set()
+        new_files = files_after - files_before
+
+        if not new_files:
+            logger.error(
+                f"MSI extraction appeared to succeed but no files were created: {msi_path}"
+            )
+            return False
+
+        logger.info(
+            f"MSI extraction successful: {len(new_files)} new files from {msi_path.name}"
+        )
         return True
+
     except Exception as exc:
         logger.error(f"MSI extraction failed for {msi_path}: {exc}")
         return False

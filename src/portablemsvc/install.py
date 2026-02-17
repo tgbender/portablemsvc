@@ -391,7 +391,15 @@ def _collect_tool_versions(
     # nmake.exe might be in a different location
     nmake_paths = [
         msvc_bin / "nmake.exe",
-        output_dir / "VC" / "Tools" / "MSVC" / msvc_version / "bin" / "Hostx64" / "x64" / "nmake.exe",
+        output_dir
+        / "VC"
+        / "Tools"
+        / "MSVC"
+        / msvc_version
+        / "bin"
+        / "Hostx64"
+        / "x64"
+        / "nmake.exe",
     ]
     for nmake_path in nmake_paths:
         if nmake_path.exists():

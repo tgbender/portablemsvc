@@ -330,13 +330,16 @@ def get_path(
 
         installs = get_installed_versions()
         for iid, install_rec in installs.items():
-            if install_rec.get("msvc_version") == msvc_ver and install_rec.get("sdk_version") == sdk_ver:
+            if (
+                install_rec.get("msvc_version") == msvc_ver
+                and install_rec.get("sdk_version") == sdk_ver
+            ):
                 typer.echo(install_rec["path"])
                 return
 
         typer.echo(
             f"Error: No install found for lockfile (MSVC {msvc_ver}, SDK {sdk_ver})",
-            err=True
+            err=True,
         )
         raise typer.Exit(1)
 

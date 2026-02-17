@@ -10,6 +10,7 @@ from plumbum import local
 
 # Access the shared install_state from conftest
 import conftest
+
 install_state: Dict[str, Optional[Dict[str, Any]]] = conftest.install_state
 
 pytestmark = pytest.mark.slow_install  # All tests in this file are slow
@@ -22,12 +23,15 @@ def test_install_normal(portablemsvc_exe, normal_install_dir: Path):
     """
     data_dir = normal_install_dir / "data"
     config_dir = normal_install_dir / "config"
+    temp_dir = normal_install_dir / "temp"
     data_dir.mkdir(parents=True)
     config_dir.mkdir(parents=True)
+    temp_dir.mkdir(parents=True)
 
     cmd = local[str(portablemsvc_exe)].with_env(
         PORTABLEMSVC_DATA=str(data_dir),
         PORTABLEMSVC_CONFIG=str(config_dir),
+        PORTABLEMSVC_TEMP=str(temp_dir),
     )
 
     cmd["install", "--accept-license", "--target", "x64"]()
@@ -47,11 +51,13 @@ def test_install_normal(portablemsvc_exe, normal_install_dir: Path):
     install_state["normal_test_install"] = {
         "data_dir": data_dir,
         "config_dir": config_dir,
+        "temp_dir": temp_dir,
         "install_path": install_path,
         "lockfile": lockfile,
         "env": {
             "PORTABLEMSVC_DATA": str(data_dir),
             "PORTABLEMSVC_CONFIG": str(config_dir),
+            "PORTABLEMSVC_TEMP": str(temp_dir),
         },
         "install_dir": normal_install_dir,
     }
@@ -67,12 +73,15 @@ def test_install_from_lockfile(portablemsvc_exe, lockfile_install_dir: Path):
 
     data_dir = lockfile_install_dir / "data"
     config_dir = lockfile_install_dir / "config"
+    temp_dir = lockfile_install_dir / "temp"
     data_dir.mkdir(parents=True)
     config_dir.mkdir(parents=True)
+    temp_dir.mkdir(parents=True)
 
     cmd = local[str(portablemsvc_exe)].with_env(
         PORTABLEMSVC_DATA=str(data_dir),
         PORTABLEMSVC_CONFIG=str(config_dir),
+        PORTABLEMSVC_TEMP=str(temp_dir),
     )
 
     cmd[
@@ -92,10 +101,12 @@ def test_install_from_lockfile(portablemsvc_exe, lockfile_install_dir: Path):
     install_state["lockfile_test_install"] = {
         "data_dir": data_dir,
         "config_dir": config_dir,
+        "temp_dir": temp_dir,
         "install_path": install_path,
         "env": {
             "PORTABLEMSVC_DATA": str(data_dir),
             "PORTABLEMSVC_CONFIG": str(config_dir),
+            "PORTABLEMSVC_TEMP": str(temp_dir),
         },
         "install_dir": lockfile_install_dir,
     }

@@ -9,7 +9,9 @@ import pytest
 @pytest.mark.cli
 def test_normal_vs_lockfile_same_versions(normal_test_install, lockfile_test_install):
     """Verify both installs have same versions."""
-    normal_env = json.loads((normal_test_install["install_path"] / "env.json").read_text())
+    normal_env = json.loads(
+        (normal_test_install["install_path"] / "env.json").read_text()
+    )
     lockfile_env = json.loads(
         (lockfile_test_install["install_path"] / "env.json").read_text()
     )
@@ -138,8 +140,7 @@ def test_compile_cpp_with_normal_install(normal_test_install, tmp_path):
 
     test_cpp = tmp_path / "test.cpp"
     test_cpp.write_text(
-        '#include <iostream>\n'
-        'int main(){std::cout << "CPP_NORMAL";return 0;}'
+        '#include <iostream>\nint main(){std::cout << "CPP_NORMAL";return 0;}'
     )
 
     new_path = ";".join(env["PATH"]) + ";" + local.env["PATH"]
@@ -166,8 +167,37 @@ def test_windows_sdk_headers_with_lockfile_install(lockfile_test_install, tmp_pa
 
     test_c = tmp_path / "test_win.c"
     test_c.write_text(
-        '#include <windows.h>\n'
-        '#include <stdio.h>\n'
+        "#include <windows.h>\n"
+        "#include <stdio.h>\n"
+        'int main(){printf("WIN_OK");return 0;}'
+    )
+
+    new_path = ";".join(env["PATH"]) + ";" + local.env["PATH"]
+    cl = local[env["CC"]].with_env(
+        PATH=new_path,
+        INCLUDE=";".join(env["INCLUDE"]),
+        LIB=";".join(env["LIB"]),
+    )
+
+    out_exe = tmp_path / "test.exe"
+    out_obj = tmp_path / "test.obj"
+    cl["/nologo", f"/Fe:{out_exe}", f"/Fo:{out_obj}", str(test_c)]()
+
+    assert out_exe.exists()
+    assert local[str(out_exe)]().strip() == "WIN_OK"
+
+
+@pytest.mark.cli
+def test_windows_sdk_headers_with_normal_install(normal_test_install, tmp_path):
+    """Compile with Windows SDK headers using normal install."""
+    from plumbum import local
+
+    env = json.loads((normal_test_install["install_path"] / "env.json").read_text())
+
+    test_c = tmp_path / "test_win.c"
+    test_c.write_text(
+        "#include <windows.h>\n"
+        "#include <stdio.h>\n"
         'int main(){printf("WIN_OK");return 0;}'
     )
 
@@ -233,5 +263,6 @@ def test_tool_versions_in_env_json(normal_test_install, lockfile_test_install):
 
         assert "cl.exe" in tool_versions, f"{name} missing cl.exe version"
         # cl.exe should have 19.x version (compiler ABI)
-        assert tool_versions["cl.exe"].startswith("19."), \
+        assert tool_versions["cl.exe"].startswith("19."), (
             f"{name} cl.exe version should start with 19.: {tool_versions['cl.exe']}"
+        )

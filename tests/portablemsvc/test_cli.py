@@ -29,6 +29,35 @@ def test_env_json_system_install(system_install):
 
 
 @pytest.mark.cli
+def test_windows_sdk_headers_system_install(system_install, tmp_path):
+    """Compile with Windows SDK headers using system install."""
+    from plumbum import local
+
+    env = json.loads((system_install["install_path"] / "env.json").read_text())
+
+    test_c = tmp_path / "test_win.c"
+    test_c.write_text(
+        "#include <windows.h>\n"
+        "#include <stdio.h>\n"
+        'int main(){printf("WIN_OK");return 0;}'
+    )
+
+    new_path = ";".join(env["PATH"]) + ";" + local.env["PATH"]
+    cl = local[env["CC"]].with_env(
+        PATH=new_path,
+        INCLUDE=";".join(env["INCLUDE"]),
+        LIB=";".join(env["LIB"]),
+    )
+
+    out_exe = tmp_path / "test.exe"
+    out_obj = tmp_path / "test.obj"
+    cl["/nologo", f"/Fe:{out_exe}", f"/Fo:{out_obj}", str(test_c)]()
+
+    assert out_exe.exists()
+    assert local[str(out_exe)]().strip() == "WIN_OK"
+
+
+@pytest.mark.cli
 def test_compile_with_system_install(system_install, tmp_path):
     """Actually compile using system install's env."""
     from plumbum import local
@@ -116,8 +145,7 @@ def test_compile_cpp_with_system_install(system_install, tmp_path):
 
     test_cpp = tmp_path / "test.cpp"
     test_cpp.write_text(
-        '#include <iostream>\n'
-        'int main(){std::cout << "CPP_OK";return 0;}'
+        '#include <iostream>\nint main(){std::cout << "CPP_OK";return 0;}'
     )
 
     new_path = ";".join(env["PATH"]) + ";" + local.env["PATH"]
@@ -142,11 +170,21 @@ def test_env_json_has_all_required_vars(system_install):
     env = json.loads(env_path.read_text())
 
     required_vars = [
-        "CC", "CXX", "AR", "MAKE",
-        "VCINSTALLDIR", "VCToolsInstallDir", "WindowsSDKDir",
-        "VCToolsVersion", "WindowsSDKVersion",
-        "VSCMD_ARG_HOST_ARCH", "VSCMD_ARG_TGT_ARCH",
-        "PATH", "INCLUDE", "LIB", "LIBPATH",
+        "CC",
+        "CXX",
+        "AR",
+        "MAKE",
+        "VCINSTALLDIR",
+        "VCToolsInstallDir",
+        "WindowsSDKDir",
+        "VCToolsVersion",
+        "WindowsSDKVersion",
+        "VSCMD_ARG_HOST_ARCH",
+        "VSCMD_ARG_TGT_ARCH",
+        "PATH",
+        "INCLUDE",
+        "LIB",
+        "LIBPATH",
     ]
 
     for var in required_vars:
@@ -190,8 +228,8 @@ def test_compile_with_windows_headers(system_install, tmp_path):
 
     test_c = tmp_path / "test_win.c"
     test_c.write_text(
-        '#include <windows.h>\n'
-        '#include <stdio.h>\n'
+        "#include <windows.h>\n"
+        "#include <stdio.h>\n"
         'int main(){printf("WIN_OK");return 0;}'
     )
 
