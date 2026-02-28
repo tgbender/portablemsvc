@@ -316,7 +316,7 @@ def install_msvc_components(
     )
 
     # Check if this version is already installed
-    existing_id = is_version_installed(msvc_version, sdk_version, host, targets)
+    existing_id = is_version_installed(msvc_version, manifest_sdk or sdk_ver, host, targets)
     if existing_id:
         logger.info(f"Version already installed (ID: {existing_id})")
         return {
@@ -344,6 +344,7 @@ def install_msvc_components(
         manifest_msvc_version=manifest_ver,
         internal_msvc_version=internal_msvc,
         sdk_version=sdk_ver,
+        sdk_manifest_version=manifest_sdk or sdk_ver,
         host=host,
         targets=targets,
     )

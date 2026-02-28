@@ -91,6 +91,7 @@ def save_installed_version(
     manifest_msvc_version: str,
     internal_msvc_version: str,
     sdk_version: str,
+    sdk_manifest_version: str,
     host: str,
     targets: List[str],
     db_path: Optional[Path] = None,
@@ -145,6 +146,7 @@ def save_installed_version(
             "msvc_version": manifest_msvc_version,
             "msvc_internal_version": internal_msvc_version,
             "sdk_version": sdk_version,
+            "sdk_manifest_version": sdk_manifest_version,
             "host": host,
             "targets": targets,
             "installed_at": datetime.datetime.now().isoformat(),
@@ -161,7 +163,7 @@ def save_installed_version(
 
 def is_version_installed(
     msvc_version: Optional[str],
-    sdk_version: Optional[str],
+    sdk_manifest_version: Optional[str],
     host: str,
     targets: List[str],
     db_path: Optional[Path] = None,
@@ -171,7 +173,7 @@ def is_version_installed(
 
     Args:
         msvc_version: MSVC version (None for any)
-        sdk_version: SDK version (None for any)
+        sdk_manifest_version: SDK manifest version (e.g., "26100") (None for any)
         host: Host architecture
         targets: List of target architectures
         db_path: Path to the database file (default: CONFIG_DIR/installed.json)
@@ -190,8 +192,11 @@ def is_version_installed(
         if msvc_version is not None and details["msvc_version"] != msvc_version:
             continue
 
-        if sdk_version is not None and details["sdk_version"] != sdk_version:
-            continue
+        # Check SDK manifest version match
+        if sdk_manifest_version is not None:
+            stored_sdk_ver = details.get("sdk_manifest_version") or details.get("sdk_version")
+            if stored_sdk_ver != sdk_manifest_version:
+                continue
 
         # Check host match
         if details["host"] != host:

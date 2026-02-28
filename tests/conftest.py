@@ -31,6 +31,8 @@ def pytest_collection_modifyitems(config, items):
                 item.add_marker(skip_install)
 
 
+
+
 @pytest.fixture(scope="session")
 def project_root(pytestconfig) -> Path:
     """Return project root directory."""
@@ -60,13 +62,15 @@ def portablemsvc(portablemsvc_exe):
 @pytest.fixture(scope="session")
 def normal_install_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Session-scoped temp directory for normal install."""
-    return tmp_path_factory.mktemp("normal_install")
+    # Use short prefix to avoid MAX_PATH issues with msiexec
+    return tmp_path_factory.mktemp("ni")
 
 
 @pytest.fixture(scope="session")
 def lockfile_install_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Session-scoped temp directory for lockfile install."""
-    return tmp_path_factory.mktemp("lockfile_install")
+    # Use short prefix to avoid MAX_PATH issues with msiexec
+    return tmp_path_factory.mktemp("li")
 
 
 # ============================================================================

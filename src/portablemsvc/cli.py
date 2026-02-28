@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -57,7 +58,9 @@ def list_installed(
         typer.echo(f"  MSVC (manifest): {rec.get('msvc_version', 'N/A')}")
         if rec.get("msvc_internal_version") is not None:
             typer.echo(f"  MSVC (internal): {rec['msvc_internal_version']}")
-        typer.echo(f"  SDK:        {rec.get('sdk_version', 'N/A')}")
+        if rec.get("sdk_manifest_version") is not None:
+            typer.echo(f"  SDK (manifest): {rec['sdk_manifest_version']}")
+        typer.echo(f"  SDK (folder): {rec.get('sdk_version', 'N/A')}")
         typer.echo(f"  Host:       {rec.get('host', 'N/A')}")
         targets = rec.get("targets", [])
         typer.echo(f"  Targets:    {', '.join(targets) if targets else 'N/A'}")
@@ -373,6 +376,120 @@ def get_path(
 
     # Output just the path for scripting
     typer.echo(install_root)
+
+
+@app.command("get-activate")
+def get_activate(
+    install_id: Optional[str] = typer.Option(
+        None, "--id", help="Installation ID (omit for latest)"
+    ),
+    lockfile: Optional[str] = typer.Option(
+        None, "--lockfile", help="Path to portablemsvc.lock to find matching install"
+    ),
+    shell: str = typer.Option(
+        "auto",
+        "--shell",
+        help="Shell type (auto|cmd|powershell|ps|xonsh)"
+    ),
+) -> None:
+    """Output the activation command for the specified toolchain."""
+    import logging
+
+    from .install_status import get_installed_versions
+    from .lockfile import Lockfile
+
+    # Suppress filelock logging to keep stdout clean
+    logging.getLogger("filelock").setLevel(logging.WARNING)
+
+    def _resolve_install() -> tuple[str, dict]:
+        """Resolve to (install_id, install_rec) tuple."""
+        if lockfile:
+            lf = Lockfile.load(Path(lockfile))
+            lf_data = lf.to_dict()
+            resolved = lf_data.get("resolved", {})
+            msvc_ver = resolved.get("msvc", {}).get("full_version")
+            sdk_ver = resolved.get("sdk", {}).get("version")
+
+            installs = get_installed_versions()
+            for iid, rec in installs.items():
+                if (
+                    rec.get("msvc_version") == msvc_ver
+                    and rec.get("sdk_manifest_version") == sdk_ver
+                ):
+                    return iid, rec
+
+            typer.echo(
+                f"Error: No install found for lockfile (MSVC {msvc_ver}, SDK {sdk_ver})",
+                err=True
+            )
+            raise typer.Exit(1)
+
+        installs = get_installed_versions()
+        if not installs:
+            typer.echo("Error: No installations found", err=True)
+            raise typer.Exit(1)
+
+        if install_id:
+            rec = installs.get(install_id)
+            if not rec:
+                typer.echo(f"Error: No installation with ID '{install_id}'", err=True)
+                raise typer.Exit(1)
+            return install_id, rec
+
+        # Pick the installation with the highest MSVC version (newest)
+        def version_key(item: tuple[str, dict]) -> tuple[int, ...]:
+            _, r = item
+            ver = r.get("msvc_version", "")
+            return tuple(int(p) for p in ver.split(".") if p.isdigit())
+
+        sid, srec = max(installs.items(), key=version_key)
+        return sid, srec
+
+    def _detect_shell() -> str:
+        """Auto-detect the current shell."""
+        # PowerShell detection
+        if os.getenv("PSVersionTable") or os.getenv("PSModulePath"):
+            return "powershell"
+        # Check parent process name
+        try:
+            import psutil
+            parent = psutil.Process().parent()
+            if parent:
+                parent_name = parent.name().lower()
+                if "pwsh" in parent_name or "powershell" in parent_name:
+                    return "powershell"
+                if "xonsh" in parent_name:
+                    return "xonsh"
+        except (ImportError, Exception):
+            pass
+        # Default to cmd on Windows
+        return "cmd"
+
+    def _get_activate_command(install_root: Path, shell_type: str) -> str:
+        """Generate the activation command for the given shell."""
+        if shell_type in ("powershell", "ps"):
+            return f'& "{install_root}\\activate.ps1"'
+        elif shell_type == "xonsh":
+            # Just the path - xonsh uses: source $(cmd).strip()
+            return f"{install_root}\\activate.xsh"
+        else:  # cmd
+            return f'"{install_root}\\activate.cmd"'
+
+    # Resolve install
+    _, rec = _resolve_install()
+    install_root = rec.get("path")
+    if not install_root:
+        typer.echo("Error: No install path recorded", err=True)
+        raise typer.Exit(1)
+
+    # Determine shell
+    selected_shell = shell.lower()
+    if selected_shell == "auto":
+        selected_shell = _detect_shell()
+
+    # Output the activation command
+    cmd = _get_activate_command(Path(install_root), selected_shell)
+    typer.echo(cmd)
 
 
 if __name__ == "__main__":

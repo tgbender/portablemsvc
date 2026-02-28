@@ -117,7 +117,7 @@ def install_msvc(
         sel_sdk = parsed["selected_sdk"]
         existing_id = is_version_installed(
             sel_msvc["full_version"],
-            sel_sdk["version"],
+            sel_sdk["version"],  # manifest SDK version (e.g., "26100")
             host,
             targets,
         )

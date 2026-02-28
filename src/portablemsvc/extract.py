@@ -10,11 +10,17 @@ from typing import Dict, List, Set, Generator, Optional
 from contextlib import contextmanager
 
 from plumbum import local
+from plumbum.commands import ProcessExecutionError
 
 from .config import TEMP_DIR
 from .lockfile import Lockfile
 
 logger = logging.getLogger(__name__)
+
+
+class MsiExtractionError(Exception):
+    """Raised when MSI extraction fails or produces no output."""
+    pass
 
 
 @contextmanager
@@ -52,36 +58,46 @@ def _extract_zip_file(
     return extracted
 
 
-def _extract_msi_file(msi_path: Path, destination: Path) -> bool:
+def _extract_msi_file(msi_path: Path, destination: Path) -> Set[Path]:
+    """Extract an MSI file. Returns the set of newly created paths. Raises on failure."""
     logger.info(f"Extracting MSI: {msi_path} → {destination}")
 
-    # Count files before extraction
     files_before = set(destination.rglob("*")) if destination.exists() else set()
 
-    try:
-        msiexec = local["msiexec.exe"]
-        msiexec[
-            "/a", str(msi_path), "/quiet", "/qn", f"TARGETDIR={destination.resolve()}"
-        ]()
-
-        # Verify extraction actually created files
-        files_after = set(destination.rglob("*")) if destination.exists() else set()
-        new_files = files_after - files_before
-
-        if not new_files:
-            logger.error(
-                f"MSI extraction appeared to succeed but no files were created: {msi_path}"
-            )
-            return False
-
-        logger.info(
-            f"MSI extraction successful: {len(new_files)} new files from {msi_path.name}"
+    target_dir = str(destination.resolve())
+    if len(target_dir) > 200:
+        logger.warning(
+            f"Target path is {len(target_dir)} chars, likely to hit 260 char limit "
+            f"for nested files: {target_dir}"
         )
-        return True
 
-    except Exception as exc:
-        logger.error(f"MSI extraction failed for {msi_path}: {exc}")
-        return False
+    msiexec = local["msiexec.exe"]
+    try:
+        msiexec[
+            "/a", str(msi_path), "/quiet", "/qn", f"TARGETDIR={target_dir}"
+        ]()
+    except ProcessExecutionError as e:
+        raise MsiExtractionError(
+            f"MSI extraction failed for {msi_path.name}: "
+            f"msiexec exited with code {e.retcode}. "
+            f"Target path is {len(target_dir)} chars. "
+            f"This often indicates the path exceeded Windows' 260 char limit."
+        ) from e
+
+    files_after = set(destination.rglob("*")) if destination.exists() else set()
+    new_files = files_after - files_before
+
+    if not new_files:
+        raise MsiExtractionError(
+            f"MSI extraction produced no files: {msi_path.name} "
+            f"(target path length: {len(target_dir)} chars). "
+            f"This often indicates the path exceeded Windows' 260 char limit."
+        )
+
+    logger.info(
+        f"MSI extraction successful: {len(new_files)} new files from {msi_path.name}"
+    )
+    return new_files
 
 
 def extract_package_files(
@@ -98,7 +114,7 @@ def extract_package_files(
     # Create a temporary working directory next to the output directory
     import uuid
 
-    temp_output_dir = output_dir.with_name(f"{output_dir.name}_temp_{uuid.uuid4().hex}")
+    temp_output_dir = output_dir.with_name(f"{output_dir.name}_{uuid.uuid4().hex[:8]}")
     temp_output_dir.mkdir(parents=True, exist_ok=True)
 
     results: Dict[str, Set[Path]] = {"msvc": set(), "sdk": set()}
@@ -143,28 +159,19 @@ def extract_package_files(
                     output_msi = temp_output_dir / msi.name
                     msi_name = msi.name
 
-                    # Capture state before extraction
-                    existing_files = (
-                        set(temp_output_dir.rglob("*"))
-                        if temp_output_dir.exists()
-                        else set()
-                    )
+                    new_files = _extract_msi_file(msi, temp_output_dir)
+                    results["sdk"].add(output_msi)
 
-                    if _extract_msi_file(msi, temp_output_dir):
-                        results["sdk"].add(output_msi)
+                    if lockfile is not None:
+                        for ef in new_files:
+                            if ef.is_file():
+                                rel_path = ef.relative_to(temp_output_dir)
+                                lockfile.add_file_extraction(msi_name, rel_path)
 
-                        if lockfile is not None:
-                            # Find newly extracted files
-                            new_files = set(temp_output_dir.rglob("*")) - existing_files
-                            for ef in new_files:
-                                if ef.is_file():
-                                    rel_path = ef.relative_to(temp_output_dir)
-                                    lockfile.add_file_extraction(msi_name, rel_path)
-
-                        # Unlink the MSI file from the output directory after extraction
-                        if output_msi.exists():
-                            logger.info(f"Removing extracted MSI file: {output_msi}")
-                            output_msi.unlink()
+                    # Unlink the MSI file from the output directory after extraction
+                    if output_msi.exists():
+                        logger.info(f"Removing extracted MSI file: {output_msi}")
+                        output_msi.unlink()
 
         # If the output directory already exists, remove it
         if output_dir.exists():

@@ -101,7 +101,8 @@ def test_compile_with_normal_test_install(normal_test_install, tmp_path):
     )
 
     out_exe = tmp_path / "test.exe"
-    cl["/nologo", f"/Fe:{out_exe}", str(test_c)]()
+    out_obj = tmp_path / "test.obj"
+    cl["/nologo", f"/Fe:{out_exe}", f"/Fo:{out_obj}", str(test_c)]()
 
     assert out_exe.exists()
     assert local[str(out_exe)]().strip() == "NORMAL"
@@ -125,7 +126,8 @@ def test_compile_with_lockfile_test_install(lockfile_test_install, tmp_path):
     )
 
     out_exe = tmp_path / "test.exe"
-    cl["/nologo", f"/Fe:{out_exe}", str(test_c)]()
+    out_obj = tmp_path / "test.obj"
+    cl["/nologo", f"/Fe:{out_exe}", f"/Fo:{out_obj}", str(test_c)]()
 
     assert out_exe.exists()
     assert local[str(out_exe)]().strip() == "LOCKFILE"
