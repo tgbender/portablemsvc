@@ -316,7 +316,18 @@ def install_msvc_components(
     )
 
     # Check if this version is already installed
-    existing_id = is_version_installed(msvc_version, manifest_sdk or sdk_ver, host, targets)
+    # Use manifest versions (short form) for lookup, not internal versions
+    # MSVC: "14.44" from manifest, or derive from "14.44.17.14" (first 2 parts)
+    msvc_manifest_ver = manifest_msvc_version
+    if msvc_manifest_ver is None:
+        parts = msvc_version.split(".")
+        msvc_manifest_ver = ".".join(parts[:2]) if len(parts) >= 2 else msvc_version
+    # SDK: "26100" from manifest, or extract from "10.0.26100.0" (3rd part)
+    sdk_manifest_ver = sdk_manifest_version
+    if sdk_manifest_ver is None:
+        parts = sdk_version.split(".")
+        sdk_manifest_ver = parts[2] if len(parts) >= 3 else sdk_version
+    existing_id = is_version_installed(msvc_manifest_ver, sdk_manifest_ver, host, targets)
     if existing_id:
         logger.info(f"Version already installed (ID: {existing_id})")
         return {

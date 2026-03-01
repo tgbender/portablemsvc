@@ -334,8 +334,8 @@ def get_path(
         installs = get_installed_versions()
         for iid, install_rec in installs.items():
             if (
-                install_rec.get("msvc_version") == msvc_ver
-                and install_rec.get("sdk_version") == sdk_ver
+                install_rec.get("msvc_internal_version") == msvc_ver
+                and install_rec.get("sdk_manifest_version") == sdk_ver
             ):
                 typer.echo(install_rec["path"])
                 return
@@ -413,7 +413,7 @@ def get_activate(
             installs = get_installed_versions()
             for iid, rec in installs.items():
                 if (
-                    rec.get("msvc_version") == msvc_ver
+                    rec.get("msvc_internal_version") == msvc_ver
                     and rec.get("sdk_manifest_version") == sdk_ver
                 ):
                     return iid, rec

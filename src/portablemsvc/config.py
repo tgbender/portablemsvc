@@ -51,3 +51,11 @@ WIN11_SDK_PREFIX = "microsoft.visualstudio.component.windows11sdk."
 def first(items, cond=lambda x: True):
     """Find the first item that matches the condition."""
     return next((item for item in items if cond(item)), None)
+
+
+# Version type aliases for clarity and type safety
+# These help prevent mixing up different version formats
+MsvcManifestVersion = str  # Short form from manifest: "14.44"
+MsvcFullVersion = str  # Full build version: "14.44.17.14"
+SdkManifestVersion = str  # Short form from manifest: "26100"
+SdkFullVersion = str  # Full SDK version: "10.0.26100.0"

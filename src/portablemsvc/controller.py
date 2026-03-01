@@ -116,7 +116,7 @@ def install_msvc(
         sel_msvc = parsed["selected_msvc"]
         sel_sdk = parsed["selected_sdk"]
         existing_id = is_version_installed(
-            sel_msvc["full_version"],
+            sel_msvc["version"],  # manifest MSVC version (e.g., "14.44")
             sel_sdk["version"],  # manifest SDK version (e.g., "26100")
             host,
             targets,
@@ -148,6 +148,7 @@ def install_msvc(
 
     # 5) extract into final output_dir
     msvc_full = parsed["selected_msvc"]["full_version"]
+    msvc_short = parsed["selected_msvc"]["version"]  # short manifest version "14.44"
     sdk_ver = parsed["selected_sdk"]["version"]
     if output_dir is None:
         output_dir = Path(DATA_DIR) / f"msvc-{msvc_full}_sdk-{sdk_ver}"
@@ -166,7 +167,7 @@ def install_msvc(
         extracted,
         host,
         targets,
-        manifest_msvc_version=msvc_full,
+        manifest_msvc_version=msvc_short,  # pass short manifest version "14.44"
         sdk_manifest_version=sdk_ver,
         lockfile=lockfile,
     )

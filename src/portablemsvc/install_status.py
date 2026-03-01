@@ -194,7 +194,12 @@ def is_version_installed(
 
         # Check SDK manifest version match
         if sdk_manifest_version is not None:
-            stored_sdk_ver = details.get("sdk_manifest_version") or details.get("sdk_version")
+            stored_sdk_ver = details.get("sdk_manifest_version")
+            if stored_sdk_ver is None:
+                # Fall back: extract from internal version "10.0.26100.0" -> "26100"
+                internal_sdk = details.get("sdk_version", "")
+                parts = internal_sdk.split(".")
+                stored_sdk_ver = parts[2] if len(parts) >= 3 else internal_sdk
             if stored_sdk_ver != sdk_manifest_version:
                 continue
 

@@ -202,7 +202,11 @@ def register_toolchain(install_id: str, install_root: Path) -> None:
     _backup_all_env_vars(install_id, spec)  # JSON backup, complete record
 
     # 1) apply each variable exactly as specced
+    # Skip metadata fields that shouldn't be environment variables
+    metadata_vars = {"TOOL_VERSIONS"}  # Not an env var, just debug info
     for var, entries in spec.items():
+        if var in metadata_vars:
+            continue
         if isinstance(entries, list):
             # merge new list entries into front of the existing PATH-style var
             try:
