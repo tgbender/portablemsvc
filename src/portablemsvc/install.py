@@ -205,6 +205,10 @@ def _create_setup_batch_files(
         "rem both bat files are here only for nvcc, do not call them manually"
     )
     (build / "vcvars64.bat").touch()
+    # Write VCToolsVersion.default.txt so tools that probe this file work correctly
+    (build / "Microsoft.VCToolsVersion.default.txt").write_text(
+        msvc_version + "\n", encoding="utf-8"
+    )
 
     # Create setup batch files for each target
     for target in targets:
@@ -226,43 +230,32 @@ set LIB=%~dp0VC\Tools\MSVC\{msvc_version}\lib\{target};%~dp0Windows Kits\10\Lib\
         (output_dir / f"setup_{target}.bat").write_text(setup_content)
 
 
-def _detect_versions(output_dir: Path) -> Dict[str, str]:
+def _detect_msvc_vctools_version(output_dir: Path, host: str, primary_target: str) -> str:
     """
-    Detect MSVC and SDK versions from the extracted files.
+    Detect the actual on-disk VCToolsVersion by scanning VC/Tools/MSVC/.
 
-    Args:
-        output_dir: Directory where files were extracted
-
-    Returns:
-        Dictionary with 'msvc_version' and 'sdk_version'
+    The VSIX package_version (e.g. 14.44.17.14) differs from the on-disk
+    VCToolsVersion directory name (e.g. 14.44.35207).  We locate the
+    highest-versioned subdirectory that actually contains both headers and
+    the host/target compiler binary.
     """
-    versions = {}
-
-    # Detect MSVC version by finding the folder that actually has link.exe
     msvc_path = output_dir / "VC/Tools/MSVC"
     if not msvc_path.exists():
-        raise ValueError("Could not detect MSVC version (no VC/Tools/MSVC folder)")
-
-    msvc_version = None
-    for d in sorted(msvc_path.iterdir()):
-        bin_root = d / "bin"
-        if bin_root.exists() and any(bin_root.rglob("link.exe")):
-            msvc_version = d.name
-            break
-    if not msvc_version:
-        raise ValueError(
-            "Could not detect MSVC version (no link.exe found in any subfolder)"
-        )
-    versions["msvc_version"] = msvc_version
-
-    # Detect SDK version
-    sdk_path = output_dir / "Windows Kits/10/bin"
-    if sdk_path.exists():
-        versions["sdk_version"] = next(sdk_path.glob("*")).name
-    else:
-        raise ValueError("Could not detect SDK version")
-
-    return versions
+        raise ValueError(f"Cannot detect VCToolsVersion: {msvc_path} not found")
+    dirs = sorted(
+        (d for d in msvc_path.iterdir() if d.is_dir() and d.name[0].isdigit()),
+        reverse=True,
+    )
+    for d in dirs:
+        if (
+            (d / "include").exists()
+            and (d / f"bin/Host{host}/{primary_target}/cl.exe").exists()
+        ):
+            return d.name
+    raise ValueError(
+        f"Cannot detect VCToolsVersion: no directory under {msvc_path} "
+        f"contains both include/ and bin/Host{host}/{primary_target}/cl.exe"
+    )
 
 
 def install_msvc_components(
@@ -270,8 +263,10 @@ def install_msvc_components(
     extracted_files: Dict[str, Set[Path]],
     host: str,
     targets: List[str],
-    manifest_msvc_version: Optional[str] = None,
-    sdk_manifest_version: Optional[str] = None,
+    msvc_toolset_version: str,
+    msvc_package_version: str,
+    sdk_build_number: str,
+    sdk_version: str,
     lockfile: Optional["Lockfile"] = None,
 ) -> Dict[str, Any]:
     """
@@ -296,74 +291,66 @@ def install_msvc_components(
         Dictionary with detected 'msvc_version', 'sdk_version', 'install_id',
         and 'tool_versions'
     """
-    # ----------------------------------------------------------------
-    # Step 1: discover the folder that actually contains link.exe
-    detected_versions = _detect_versions(output_dir)
-    internal_msvc = detected_versions["msvc_version"]
-    internal_sdk = detected_versions["sdk_version"]
-    # Use manifest version if provided; record manifest vs internal SDK
-    manifest_ver = manifest_msvc_version or internal_msvc
-    manifest_sdk = sdk_manifest_version  # noqa: F841 - reserved for lockfile output
-    # Always use the detected internal SDK version for env.json and installation record
-    sdk_ver = internal_sdk
-    # Override locals for downstream steps
-    msvc_version = internal_msvc
-    sdk_version = sdk_ver
-    # ----------------------------------------------------------------
+    actual_toolset = msvc_toolset_version
+    actual_package = msvc_package_version
+    actual_build_num = sdk_build_number
+    actual_sdk_ver = sdk_version
+
+    # Detect the actual on-disk VCToolsVersion (differs from package version)
+    primary_tgt = targets[0] if targets else host
+    actual_vctools = _detect_msvc_vctools_version(output_dir, host, primary_tgt)
+    if lockfile is not None:
+        lockfile.set_msvc_vctools_version(actual_vctools)
 
     logger.info(
-        f"Installing MSVC manifest={manifest_ver} internal={internal_msvc} SDK={sdk_ver} host={host} targets={targets}"
+        f"Installing MSVC toolset={actual_toolset} package={actual_package} "
+        f"vctools={actual_vctools} SDK build={actual_build_num} host={host} targets={targets}"
     )
 
     # Check if this version is already installed
-    # Use manifest versions (short form) for lookup, not internal versions
-    # MSVC: "14.44" from manifest, or derive from "14.44.17.14" (first 2 parts)
-    msvc_manifest_ver = manifest_msvc_version
-    if msvc_manifest_ver is None:
-        parts = msvc_version.split(".")
-        msvc_manifest_ver = ".".join(parts[:2]) if len(parts) >= 2 else msvc_version
-    # SDK: "26100" from manifest, or extract from "10.0.26100.0" (3rd part)
-    sdk_manifest_ver = sdk_manifest_version
-    if sdk_manifest_ver is None:
-        parts = sdk_version.split(".")
-        sdk_manifest_ver = parts[2] if len(parts) >= 3 else sdk_version
-    existing_id = is_version_installed(msvc_manifest_ver, sdk_manifest_ver, host, targets)
+    existing_id = is_version_installed(actual_toolset, actual_build_num, host, targets)
     if existing_id:
         logger.info(f"Version already installed (ID: {existing_id})")
         return {
-            "msvc_version": msvc_version,
-            "sdk_version": sdk_version,
+            "msvc_toolset_version": actual_toolset,
+            "msvc_package_version": actual_package,
+            "msvc_vctools_version": actual_vctools,
+            "sdk_version": actual_sdk_ver,
+            "sdk_build_number": actual_build_num,
             "install_id": existing_id,
         }
 
     # Perform installation steps
-    _setup_debug_crt(output_dir, msvc_version, host, targets)
-    _setup_msdia140(output_dir, msvc_version, host, targets)
+    _setup_debug_crt(output_dir, actual_vctools, host, targets)
+    _setup_msdia140(output_dir, actual_vctools, host, targets)
     _cleanup_unnecessary_files(
-        output_dir, msvc_version, sdk_version, host, targets, lockfile
+        output_dir, actual_vctools, actual_sdk_ver, host, targets, lockfile
     )
-    _create_setup_batch_files(output_dir, msvc_version, sdk_version, host, targets)
+    _create_setup_batch_files(output_dir, actual_vctools, actual_sdk_ver, host, targets)
 
     # Collect tool versions (guarded with timeout)
     tool_versions = _collect_tool_versions(
-        output_dir, msvc_version, host, targets, lockfile
+        output_dir, actual_vctools, host, targets, lockfile
     )
 
     # Save installation record
     install_id = save_installed_version(
         output_dir=output_dir,
-        manifest_msvc_version=manifest_ver,
-        internal_msvc_version=internal_msvc,
-        sdk_version=sdk_ver,
-        sdk_manifest_version=manifest_sdk or sdk_ver,
+        msvc_toolset_version=actual_toolset,
+        msvc_package_version=actual_package,
+        msvc_vctools_version=actual_vctools,
+        sdk_version=actual_sdk_ver,
+        sdk_build_number=actual_build_num,
         host=host,
         targets=targets,
     )
 
     return {
-        "msvc_manifest_version": manifest_ver,
-        "msvc_internal_version": internal_msvc,
-        "sdk_version": sdk_ver,
+        "msvc_toolset_version": actual_toolset,
+        "msvc_package_version": actual_package,
+        "msvc_vctools_version": actual_vctools,
+        "sdk_version": actual_sdk_ver,
+        "sdk_build_number": actual_build_num,
         "install_id": install_id,
         "tool_versions": tool_versions,
     }
@@ -427,24 +414,26 @@ def _collect_tool_versions(
 
         try:
             pe = pefile.PE(str(tool_path), fast_load=True)
-            pe.parse_data_directories(
-                directories=[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_RESOURCE"]]
-            )
+            try:
+                pe.parse_data_directories(
+                    directories=[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_RESOURCE"]]
+                )
 
-            if hasattr(pe, "FileInfo") and pe.FileInfo:
-                for file_info in pe.FileInfo:
-                    for entry in file_info:
-                        if hasattr(entry, "Key") and entry.Key == b"StringFileInfo":
-                            for table in entry.StringTable:
-                                if b"FileVersion" in table.entries:
-                                    version = table.entries[b"FileVersion"].decode(
-                                        "utf-8", errors="ignore"
-                                    )
-                                    if version:
-                                        tool_versions[tool_name] = version
-                                        logger.debug(f"{tool_name}: {version}")
-                                    break
-            pe.close()
+                if hasattr(pe, "FileInfo") and pe.FileInfo:
+                    for file_info in pe.FileInfo:
+                        for entry in file_info:
+                            if hasattr(entry, "Key") and entry.Key == b"StringFileInfo":
+                                for table in entry.StringTable:
+                                    if b"FileVersion" in table.entries:
+                                        version = table.entries[b"FileVersion"].decode(
+                                            "utf-8", errors="ignore"
+                                        )
+                                        if version:
+                                            tool_versions[tool_name] = version
+                                            logger.debug(f"{tool_name}: {version}")
+                                        break
+            finally:
+                pe.close()
         except Exception as e:
             logger.warning(f"Failed to get version for {tool_name}: {e}")
 
@@ -459,7 +448,10 @@ def _generate_env_spec(
     install_root: Path,
     host: str,
     targets: List[str],
-    msvc_version: str,
+    msvc_toolset_version: str,
+    msvc_package_version: str,
+    msvc_vctools_version: str,
+    sdk_build_number: str,
     sdk_version: str,
     tool_versions: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
@@ -469,7 +461,7 @@ def _generate_env_spec(
     """
     install_root = install_root.resolve()
     msvc_bin_root = (
-        install_root / "VC" / "Tools" / "MSVC" / msvc_version / f"bin/Host{host}"
+        install_root / "VC" / "Tools" / "MSVC" / msvc_vctools_version / f"bin/Host{host}"
     )
     # Pick a primary target for CC/CXX/AR; first requested, or host as fallback
     primary_tgt = targets[0] if targets else host
@@ -478,8 +470,14 @@ def _generate_env_spec(
     spec: Dict[str, Any] = {
         "VSCMD_ARG_HOST_ARCH": host,
         "VSCMD_ARG_TGT_ARCH": targets,
-        "VCToolsVersion": msvc_version,
+        "VCToolsVersion": msvc_vctools_version,
         "WindowsSDKVersion": sdk_version,
+        # Portable-MSVC metadata (all version strings explicitly)
+        "PORTABLE_MSVC_TOOLSET_VERSION": msvc_toolset_version,
+        "PORTABLE_MSVC_PACKAGE_VERSION": msvc_package_version,
+        "PORTABLE_MSVC_VCTOOLS_VERSION": msvc_vctools_version,
+        "PORTABLE_SDK_BUILD_NUMBER": sdk_build_number,
+        "PORTABLE_SDK_VERSION": sdk_version,
         # Compiler / tool variables (absolute paths)
         "CC": str(msvc_bin_primary / "cl.exe"),
         "CXX": str(msvc_bin_primary / "cl.exe"),
@@ -489,7 +487,7 @@ def _generate_env_spec(
         # classic VS variable pointing at VC root
         "VCINSTALLDIR": str(install_root / "VC") + "\\",
         # legacy compatibility variables
-        "VCToolsInstallDir": str(install_root / "VC" / "Tools" / "MSVC" / msvc_version)
+        "VCToolsInstallDir": str(install_root / "VC" / "Tools" / "MSVC" / msvc_vctools_version)
         + "\\",
         "WindowsSDKDir": str(install_root / "Windows Kits" / "10") + "\\",
     }
@@ -523,7 +521,7 @@ def _generate_env_spec(
 
     # INCLUDE entries
     spec["INCLUDE"] = [
-        str(install_root / "VC" / "Tools" / "MSVC" / msvc_version / "include"),
+        str(install_root / "VC" / "Tools" / "MSVC" / msvc_vctools_version / "include"),
         *(
             str(install_root / "Windows Kits" / "10" / "Include" / sdk_version / sub)
             for sub in ["ucrt", "shared", "um", "winrt", "cppwinrt"]
@@ -534,7 +532,7 @@ def _generate_env_spec(
     lib_entries: List[str] = []
     for tgt in targets:
         lib_entries += [
-            str(install_root / "VC" / "Tools" / "MSVC" / msvc_version / "lib" / tgt),
+            str(install_root / "VC" / "Tools" / "MSVC" / msvc_vctools_version / "lib" / tgt),
             *(
                 str(
                     install_root
@@ -575,6 +573,16 @@ def _write_activation_scripts(
 
     # --- activate.cmd ---
     cmd = ["@echo off", "REM Activate portable MSVC\n"]
+    # Portable version metadata
+    for key in (
+        "PORTABLE_MSVC_TOOLSET_VERSION",
+        "PORTABLE_MSVC_PACKAGE_VERSION",
+        "PORTABLE_MSVC_VCTOOLS_VERSION",
+        "PORTABLE_SDK_BUILD_NUMBER",
+        "PORTABLE_SDK_VERSION",
+    ):
+        val = spec[key]
+        cmd.append(f'set "{key}={val}"')
     # simple vars
     for key in (
         "VSCMD_ARG_HOST_ARCH",
@@ -609,6 +617,13 @@ def _write_activation_scripts(
         "",
         "# load JSON spec",
         '$json = Get-Content "$here\\env.json" -Raw | ConvertFrom-Json',
+        "",
+        "# set portable version metadata",
+        '$env:PORTABLE_MSVC_TOOLSET_VERSION  = $json.PORTABLE_MSVC_TOOLSET_VERSION',
+        '$env:PORTABLE_MSVC_PACKAGE_VERSION  = $json.PORTABLE_MSVC_PACKAGE_VERSION',
+        '$env:PORTABLE_MSVC_VCTOOLS_VERSION  = $json.PORTABLE_MSVC_VCTOOLS_VERSION',
+        '$env:PORTABLE_SDK_BUILD_NUMBER      = $json.PORTABLE_SDK_BUILD_NUMBER',
+        '$env:PORTABLE_SDK_VERSION           = $json.PORTABLE_SDK_VERSION',
         "",
         "# set simple vars",
         "$env:VSCMD_ARG_HOST_ARCH = $json.VSCMD_ARG_HOST_ARCH",
@@ -655,6 +670,13 @@ def _write_activation_scripts(
         'spec_path = here / "env.json"',
         "with open(spec_path) as f:",
         "    spec = json.load(f)",
+        "",
+        "# set portable version metadata",
+        '$"PORTABLE_MSVC_TOOLSET_VERSION" = spec["PORTABLE_MSVC_TOOLSET_VERSION"]',
+        '$"PORTABLE_MSVC_PACKAGE_VERSION" = spec["PORTABLE_MSVC_PACKAGE_VERSION"]',
+        '$"PORTABLE_MSVC_VCTOOLS_VERSION" = spec["PORTABLE_MSVC_VCTOOLS_VERSION"]',
+        '$"PORTABLE_SDK_BUILD_NUMBER" = spec["PORTABLE_SDK_BUILD_NUMBER"]',
+        '$"PORTABLE_SDK_VERSION" = spec["PORTABLE_SDK_VERSION"]',
         "",
         "# set simple vars",
     ]

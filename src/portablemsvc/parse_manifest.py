@@ -96,8 +96,8 @@ def _select_msvc_version(msvc_versions, requested_version):
     selected_full_ver = ".".join(selected_pid.split(".")[2:6])
 
     return {
-        "version": selected_ver,
-        "full_version": selected_full_ver,
+        "toolset_version": selected_ver,
+        "package_version": selected_full_ver,
         "package_id": selected_pid,
     }
 
@@ -116,7 +116,11 @@ def _select_sdk_version(sdk_versions, requested_version):
         selected_ver = max(sorted(sdk_versions.keys()))
         selected_pid = sdk_versions[selected_ver]
 
-    return {"version": selected_ver, "package_id": selected_pid}
+    return {
+        "build_number": selected_ver,
+        "version": f"10.0.{selected_ver}.0",
+        "package_id": selected_pid,
+    }
 
 
 def _get_sdk_package_info(packages, sdk_pid):
@@ -146,17 +150,17 @@ def _validate_manifest_ver(msvc_versions, msvc_ver):
     elif num_periods == 1:
         try:
             full_ver = msvc_versions[msvc_ver]
-            full_ver = ".".join(full_ver.split(".")[2:6])
-            return full_ver
+            package_ver = ".".join(full_ver.split(".")[2:6])
+            return package_ver
         except KeyError:
-            logger.error(f"MSVC version {msvc_ver} not found in manifest")
-            raise ValueError(f"MSVC version {msvc_ver} not found in manifest")
+            logger.error(f"MSVC toolset version {msvc_ver} not found in manifest")
+            raise ValueError(f"MSVC toolset version {msvc_ver} not found in manifest")
     elif num_periods == 3:
         for value in msvc_versions.values():
             test_value = ".".join(value.split(".")[2:6])
             if msvc_ver == test_value:
                 return msvc_ver
-        raise ValueError(f"MSVC version {msvc_ver} not found in manifest")
+        raise ValueError(f"MSVC package version {msvc_ver} not found in manifest")
     else:
         raise ValueError(f"MSVC version {msvc_ver} not found in manifest")
 
@@ -208,12 +212,12 @@ def parse_vs_manifest(
         selected_sdk = _select_sdk_version(sdk_versions, sdk_version)
 
         # Get package lists
-        msvc_packages = get_msvc_packages(selected_msvc["full_version"], host, targets)
+        msvc_packages = get_msvc_packages(selected_msvc["package_version"], host, targets)
         sdk_packages = get_sdk_packages(targets)
 
         # Resolve redist package dependencies
         msvc_packages = resolve_redist_packages(
-            packages, msvc_packages, selected_msvc["full_version"], targets
+            packages, msvc_packages, selected_msvc["package_version"], targets
         )
 
         # Get SDK package info

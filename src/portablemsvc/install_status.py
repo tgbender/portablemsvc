@@ -88,10 +88,11 @@ def get_installed_versions(db_path: Optional[Path] = None) -> Dict[str, Dict[str
 
 def save_installed_version(
     output_dir: Path,
-    manifest_msvc_version: str,
-    internal_msvc_version: str,
+    msvc_toolset_version: str,
+    msvc_package_version: str,
+    msvc_vctools_version: str,
     sdk_version: str,
-    sdk_manifest_version: str,
+    sdk_build_number: str,
     host: str,
     targets: List[str],
     db_path: Optional[Path] = None,
@@ -115,7 +116,7 @@ def save_installed_version(
 
     # If this exact toolchain is already recorded, skip writing a new entry
     existing_id = is_version_installed(
-        manifest_msvc_version, sdk_version, host, targets, db_path
+        msvc_toolset_version, sdk_build_number, host, targets, db_path
     )
     if existing_id:
         logger.info(f"Installation already recorded as {existing_id}, skipping write.")
@@ -143,10 +144,11 @@ def save_installed_version(
         # Add new installation
         installations[install_id] = {
             "path": str(output_dir.resolve()),
-            "msvc_version": manifest_msvc_version,
-            "msvc_internal_version": internal_msvc_version,
+            "msvc_toolset_version": msvc_toolset_version,
+            "msvc_package_version": msvc_package_version,
+            "msvc_vctools_version": msvc_vctools_version,
             "sdk_version": sdk_version,
-            "sdk_manifest_version": sdk_manifest_version,
+            "sdk_build_number": sdk_build_number,
             "host": host,
             "targets": targets,
             "installed_at": datetime.datetime.now().isoformat(),
@@ -162,8 +164,8 @@ def save_installed_version(
 
 
 def is_version_installed(
-    msvc_version: Optional[str],
-    sdk_manifest_version: Optional[str],
+    msvc_toolset_version: Optional[str],
+    sdk_build_number: Optional[str],
     host: str,
     targets: List[str],
     db_path: Optional[Path] = None,
@@ -189,18 +191,13 @@ def is_version_installed(
             continue
 
         # Check version match
-        if msvc_version is not None and details["msvc_version"] != msvc_version:
+        if msvc_toolset_version is not None and details.get("msvc_toolset_version") != msvc_toolset_version:
             continue
 
-        # Check SDK manifest version match
-        if sdk_manifest_version is not None:
-            stored_sdk_ver = details.get("sdk_manifest_version")
-            if stored_sdk_ver is None:
-                # Fall back: extract from internal version "10.0.26100.0" -> "26100"
-                internal_sdk = details.get("sdk_version", "")
-                parts = internal_sdk.split(".")
-                stored_sdk_ver = parts[2] if len(parts) >= 3 else internal_sdk
-            if stored_sdk_ver != sdk_manifest_version:
+        # Check SDK build number match
+        if sdk_build_number is not None:
+            stored_build = details.get("sdk_build_number")
+            if stored_build != sdk_build_number:
                 continue
 
         # Check host match

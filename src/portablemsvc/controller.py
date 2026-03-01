@@ -17,7 +17,7 @@ from .install_status import (
     get_installed_versions,
     save_installed_version,
 )
-from .install import _generate_env_spec, _write_activation_scripts, _detect_versions
+from .install import _generate_env_spec, _write_activation_scripts
 from .lockfile import Lockfile
 from .extract import _extract_zip_file, _extract_msi_file
 
@@ -105,19 +105,19 @@ def install_msvc(
 
     # Record resolved versions in lockfile
     lockfile.set_resolved_versions(
-        msvc_full_version=parsed["selected_msvc"]["full_version"],
+        msvc_toolset_version=parsed["selected_msvc"]["toolset_version"],
+        msvc_package_version=parsed["selected_msvc"]["package_version"],
         msvc_package_id=parsed["selected_msvc"]["package_id"],
+        sdk_build_number=parsed["selected_sdk"]["build_number"],
         sdk_version=parsed["selected_sdk"]["version"],
         sdk_package_id=parsed["selected_sdk"]["package_id"],
     )
 
     # 2) skip if that exact full MSVC+SDK is already installed
     if not force:
-        sel_msvc = parsed["selected_msvc"]
-        sel_sdk = parsed["selected_sdk"]
         existing_id = is_version_installed(
-            sel_msvc["version"],  # manifest MSVC version (e.g., "14.44")
-            sel_sdk["version"],  # manifest SDK version (e.g., "26100")
+            parsed["selected_msvc"]["toolset_version"],
+            parsed["selected_sdk"]["build_number"],
             host,
             targets,
         )
@@ -147,11 +147,12 @@ def install_msvc(
     all_files = {**files_map, **cab_downloads}
 
     # 5) extract into final output_dir
-    msvc_full = parsed["selected_msvc"]["full_version"]
-    msvc_short = parsed["selected_msvc"]["version"]  # short manifest version "14.44"
+    msvc_toolset = parsed["selected_msvc"]["toolset_version"]
+    msvc_package = parsed["selected_msvc"]["package_version"]
+    sdk_build = parsed["selected_sdk"]["build_number"]
     sdk_ver = parsed["selected_sdk"]["version"]
     if output_dir is None:
-        output_dir = Path(DATA_DIR) / f"msvc-{msvc_full}_sdk-{sdk_ver}"
+        output_dir = Path(DATA_DIR) / f"msvc-{msvc_package}_sdk-{sdk_build}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     logger.info(f"Extracting all packages to: {output_dir}")
@@ -167,8 +168,10 @@ def install_msvc(
         extracted,
         host,
         targets,
-        manifest_msvc_version=msvc_short,  # pass short manifest version "14.44"
-        sdk_manifest_version=sdk_ver,
+        msvc_toolset_version=msvc_toolset,
+        msvc_package_version=msvc_package,
+        sdk_build_number=sdk_build,
+        sdk_version=sdk_ver,
         lockfile=lockfile,
     )
 
@@ -177,7 +180,10 @@ def install_msvc(
         output_dir,
         host,
         targets,
-        install_result["msvc_internal_version"],
+        install_result["msvc_toolset_version"],
+        install_result["msvc_package_version"],
+        install_result["msvc_vctools_version"],
+        install_result["sdk_build_number"],
         install_result["sdk_version"],
         tool_versions=install_result.get("tool_versions"),
     )
@@ -219,17 +225,19 @@ def install_from_lockfile(
     lock_data = lockfile.to_dict()
 
     resolved = lock_data.get("resolved", {})
-    msvc_full_ver = resolved.get("msvc", {}).get("full_version", "unknown")
-    sdk_ver = resolved.get("sdk", {}).get("version", "unknown")
+    msvc_toolset_ver = resolved.get("msvc", {}).get("toolset_version", "unknown")
+    msvc_package_ver = resolved.get("msvc", {}).get("package_version", "unknown")
+    sdk_build_num = resolved.get("sdk", {}).get("build_number", "unknown")
+    sdk_full_ver = resolved.get("sdk", {}).get("version", "unknown")
     host = lock_data.get("host", "x64")
     targets = lock_data.get("targets", [host])
 
     # Determine output directory
     if output_dir is None:
-        output_dir = Path(DATA_DIR) / f"msvc-{msvc_full_ver}_sdk-{sdk_ver}"
+        output_dir = Path(DATA_DIR) / f"msvc-{msvc_package_ver}_sdk-{sdk_build_num}"
 
     # Check if already installed (same as normal flow)
-    existing_id = is_version_installed(msvc_full_ver, sdk_ver, host, targets)
+    existing_id = is_version_installed(msvc_toolset_ver, sdk_build_num, host, targets)
     if existing_id:
         inst = get_installed_versions()[existing_id]
         logger.info(f"Already installed: {existing_id} -> {inst['path']}")
@@ -272,8 +280,11 @@ def install_from_lockfile(
         extracted,
         host,
         targets,
-        manifest_msvc_version=msvc_full_ver,
-        sdk_manifest_version=sdk_ver,
+        msvc_toolset_version=msvc_toolset_ver,
+        msvc_package_version=msvc_package_ver,
+        sdk_build_number=sdk_build_num,
+        sdk_version=sdk_full_ver,
+        lockfile=lockfile,
     )
 
     # Generate env spec and activation scripts (same as normal flow)
@@ -281,7 +292,10 @@ def install_from_lockfile(
         output_dir,
         host,
         targets,
-        install_result["msvc_internal_version"],
+        install_result["msvc_toolset_version"],
+        install_result["msvc_package_version"],
+        install_result["msvc_vctools_version"],
+        install_result["sdk_build_number"],
         install_result["sdk_version"],
         tool_versions=install_result.get("tool_versions"),
     )
@@ -294,7 +308,9 @@ def install_from_lockfile(
         "already_installed": False,
         "install_id": install_result["install_id"],
         "path": str(output_dir),
-        "msvc_manifest_version": msvc_full_ver,
-        "msvc_internal_version": install_result["msvc_internal_version"],
+        "msvc_toolset_version": install_result["msvc_toolset_version"],
+        "msvc_package_version": install_result["msvc_package_version"],
+        "msvc_vctools_version": install_result["msvc_vctools_version"],
         "sdk_version": install_result["sdk_version"],
+        "sdk_build_number": install_result["sdk_build_number"],
     }

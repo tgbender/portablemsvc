@@ -16,8 +16,19 @@ def test_normal_vs_lockfile_same_versions(normal_test_install, lockfile_test_ins
         (lockfile_test_install["install_path"] / "env.json").read_text()
     )
 
-    assert normal_env["VCToolsVersion"] == lockfile_env["VCToolsVersion"]
-    assert normal_env["WindowsSDKVersion"] == lockfile_env["WindowsSDKVersion"]
+    version_keys = [
+        "VCToolsVersion",
+        "WindowsSDKVersion",
+        "PORTABLE_MSVC_TOOLSET_VERSION",
+        "PORTABLE_MSVC_PACKAGE_VERSION",
+        "PORTABLE_MSVC_VCTOOLS_VERSION",
+        "PORTABLE_SDK_BUILD_NUMBER",
+        "PORTABLE_SDK_VERSION",
+    ]
+    for key in version_keys:
+        assert normal_env.get(key) == lockfile_env.get(key), (
+            f"{key}: normal={normal_env.get(key)!r} != lockfile={lockfile_env.get(key)!r}"
+        )
 
 
 @pytest.mark.cli
@@ -28,6 +39,12 @@ def test_normal_install_has_lockfile(normal_test_install):
     # Verify lockfile is valid JSON
     lock_data = json.loads(normal_test_install["lockfile"].read_text())
     assert "resolved" in lock_data
+    assert "msvc" in lock_data["resolved"]
+    assert "toolset_version" in lock_data["resolved"]["msvc"]
+    assert "package_version" in lock_data["resolved"]["msvc"]
+    assert "sdk" in lock_data["resolved"]
+    assert "build_number" in lock_data["resolved"]["sdk"]
+    assert "version" in lock_data["resolved"]["sdk"]
     assert "files" in lock_data
 
 
@@ -260,6 +277,12 @@ def test_tool_versions_in_env_json(normal_test_install, lockfile_test_install):
         env_path = install["install_path"] / "env.json"
         env = json.loads(env_path.read_text())
 
+        # Check new portable version keys exist
+        assert "PORTABLE_MSVC_TOOLSET_VERSION" in env, f"{name} missing PORTABLE_MSVC_TOOLSET_VERSION"
+        assert "PORTABLE_MSVC_PACKAGE_VERSION" in env, f"{name} missing PORTABLE_MSVC_PACKAGE_VERSION"
+        assert "PORTABLE_SDK_BUILD_NUMBER" in env, f"{name} missing PORTABLE_SDK_BUILD_NUMBER"
+        assert "PORTABLE_SDK_VERSION" in env, f"{name} missing PORTABLE_SDK_VERSION"
+        
         assert "TOOL_VERSIONS" in env, f"{name} install missing TOOL_VERSIONS"
         tool_versions = env["TOOL_VERSIONS"]
 

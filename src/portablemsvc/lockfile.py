@@ -65,17 +65,22 @@ class Lockfile:
     def set_resolved_versions(
         self,
         *,
-        msvc_full_version: str,
+        msvc_toolset_version: str,
+        msvc_package_version: str,
         msvc_package_id: str,
+        sdk_build_number: str,
         sdk_version: str,
         sdk_package_id: str,
     ) -> None:
         """Record the resolved MSVC and SDK versions."""
         self.data["resolved"]["msvc"] = {
-            "full_version": msvc_full_version,
+            "toolset_version": msvc_toolset_version,
+            "package_version": msvc_package_version,
+            "vctools_version": None,  # populated after extraction
             "package_id": msvc_package_id,
         }
         self.data["resolved"]["sdk"] = {
+            "build_number": sdk_build_number,
             "version": sdk_version,
             "package_id": sdk_package_id,
         }
@@ -211,6 +216,10 @@ class Lockfile:
     def set_tool_versions(self, tool_versions: Dict[str, str]) -> None:
         """Record the versions of installed tools (cl.exe, lib.exe, etc.)."""
         self.data["tool_versions"] = tool_versions
+
+    def set_msvc_vctools_version(self, vctools_version: str) -> None:
+        """Record the detected on-disk VCToolsVersion (detected after extraction)."""
+        self.data["resolved"]["msvc"]["vctools_version"] = vctools_version
 
     def to_dict(self) -> Dict[str, Any]:
         """Return the lockfile as a dictionary."""

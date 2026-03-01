@@ -53,9 +53,14 @@ def first(items, cond=lambda x: True):
     return next((item for item in items if cond(item)), None)
 
 
-# Version type aliases for clarity and type safety
-# These help prevent mixing up different version formats
-MsvcManifestVersion = str  # Short form from manifest: "14.44"
-MsvcFullVersion = str  # Full build version: "14.44.17.14"
-SdkManifestVersion = str  # Short form from manifest: "26100"
-SdkFullVersion = str  # Full SDK version: "10.0.26100.0"
+from typing import NewType
+
+# MSVC: Toolset version is what users specify (e.g., "14.44")
+# Package version is the full build (e.g., "14.44.17.14") that appears in folders
+MsvcToolsetVersion = NewType("MsvcToolsetVersion", str)
+MsvcPackageVersion = NewType("MsvcPackageVersion", str)
+
+# Windows SDK: Build number is the integer ID (e.g., "26100")
+# Version is the full 4-part string (e.g., "10.0.26100.0")
+SdkBuildNumber = NewType("SdkBuildNumber", str)
+SdkVersion = NewType("SdkVersion", str)

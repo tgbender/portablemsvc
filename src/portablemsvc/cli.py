@@ -55,12 +55,11 @@ def list_installed(
     for install_id, rec in installs.items():
         typer.echo(f"ID:           {install_id}")
         typer.echo(f"  Path:       {rec.get('path', 'N/A')}")
-        typer.echo(f"  MSVC (manifest): {rec.get('msvc_version', 'N/A')}")
-        if rec.get("msvc_internal_version") is not None:
-            typer.echo(f"  MSVC (internal): {rec['msvc_internal_version']}")
-        if rec.get("sdk_manifest_version") is not None:
-            typer.echo(f"  SDK (manifest): {rec['sdk_manifest_version']}")
-        typer.echo(f"  SDK (folder): {rec.get('sdk_version', 'N/A')}")
+        typer.echo(f"  MSVC Toolset: {rec.get('msvc_toolset_version', 'N/A')}")
+        typer.echo(f"  MSVC Package: {rec.get('msvc_package_version', 'N/A')}")
+        typer.echo(f"  MSVC VCTools: {rec.get('msvc_vctools_version', 'N/A')}")
+        typer.echo(f"  SDK Build:    {rec.get('sdk_build_number', 'N/A')}")
+        typer.echo(f"  SDK Version:  {rec.get('sdk_version', 'N/A')}")
         typer.echo(f"  Host:       {rec.get('host', 'N/A')}")
         targets = rec.get("targets", [])
         typer.echo(f"  Targets:    {', '.join(targets) if targets else 'N/A'}")
@@ -221,8 +220,7 @@ def register(
         # Pick the installation with the highest MSVC version (newest from MS)
         def version_key(item: tuple[str, dict]) -> tuple[int, ...]:
             _, rec = item
-            ver = rec.get("msvc_version", "")
-            # "14.44.17.14" → (14, 44, 17, 14)
+            ver = rec.get("msvc_toolset_version", "")
             return tuple(int(p) for p in ver.split(".") if p.isdigit())
 
         selected_id, _ = max(installs.items(), key=version_key)
@@ -328,14 +326,14 @@ def get_path(
         lf = Lockfile.load(Path(lockfile))
         lf_data = lf.to_dict()
         resolved = lf_data.get("resolved", {})
-        msvc_ver = resolved.get("msvc", {}).get("full_version")
-        sdk_ver = resolved.get("sdk", {}).get("version")
+        msvc_ver = resolved.get("msvc", {}).get("package_version")
+        sdk_ver = resolved.get("sdk", {}).get("build_number")
 
         installs = get_installed_versions()
         for iid, install_rec in installs.items():
             if (
-                install_rec.get("msvc_internal_version") == msvc_ver
-                and install_rec.get("sdk_manifest_version") == sdk_ver
+                install_rec.get("msvc_package_version") == msvc_ver
+                and install_rec.get("sdk_build_number") == sdk_ver
             ):
                 typer.echo(install_rec["path"])
                 return
@@ -359,7 +357,7 @@ def get_path(
         # Pick the installation with the highest MSVC version (newest)
         def version_key(item: tuple[str, dict]) -> tuple[int, ...]:
             _, install_rec = item
-            ver = install_rec.get("msvc_version", "")
+            ver = install_rec.get("msvc_toolset_version", "")
             return tuple(int(p) for p in ver.split(".") if p.isdigit())
 
         selected_id, _ = max(installs.items(), key=version_key)
@@ -407,14 +405,14 @@ def get_activate(
             lf = Lockfile.load(Path(lockfile))
             lf_data = lf.to_dict()
             resolved = lf_data.get("resolved", {})
-            msvc_ver = resolved.get("msvc", {}).get("full_version")
-            sdk_ver = resolved.get("sdk", {}).get("version")
+            msvc_ver = resolved.get("msvc", {}).get("package_version")
+            sdk_ver = resolved.get("sdk", {}).get("build_number")
 
             installs = get_installed_versions()
             for iid, rec in installs.items():
                 if (
-                    rec.get("msvc_internal_version") == msvc_ver
-                    and rec.get("sdk_manifest_version") == sdk_ver
+                    rec.get("msvc_package_version") == msvc_ver
+                    and rec.get("sdk_build_number") == sdk_ver
                 ):
                     return iid, rec
 
@@ -439,7 +437,7 @@ def get_activate(
         # Pick the installation with the highest MSVC version (newest)
         def version_key(item: tuple[str, dict]) -> tuple[int, ...]:
             _, r = item
-            ver = r.get("msvc_version", "")
+            ver = r.get("msvc_toolset_version", "")
             return tuple(int(p) for p in ver.split(".") if p.isdigit())
 
         sid, srec = max(installs.items(), key=version_key)
