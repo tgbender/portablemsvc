@@ -238,17 +238,17 @@ def register(
     typer.echo(f"Registered toolchain {selected_id} into HKCU\\Environment.")
 
 
-@app.command("deregister")
-def deregister(
+@app.command("unregister")
+def unregister(
     install_id: Optional[str] = typer.Option(
         None,
         "--id",
-        help="ID of the installation to deregister (omit for current)",
+        help="ID of the installation to unregister (omit for current)",
     ),
 ) -> None:
-    """Deregister a toolchain from HKCU\\Environment."""
+    """Unregister a toolchain from HKCU\\Environment."""
     from .registry_helpers import (
-        deregister_toolchain,
+        unregister_toolchain,
         _load_state,
         _LOCK_FILE,
         FileLock,
@@ -267,8 +267,8 @@ def deregister(
             )
             raise typer.Exit(1)
 
-    deregister_toolchain(iid)
-    typer.echo(f"Deregistered toolchain {iid} from HKCU\\Environment.")
+    unregister_toolchain(iid)
+    typer.echo(f"Unregistered toolchain {iid} from HKCU\\Environment.")
 
 
 @app.command("install-from-lockfile")

@@ -57,7 +57,11 @@ def _backup_all_env_vars(install_id: str, spec: Dict[str, Any]) -> Path:
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # Collect current values for all vars we're about to modify
-    backup_data: dict[str, Any] = {"install_id": install_id, "timestamp": ts, "vars": {}}
+    backup_data: dict[str, Any] = {
+        "install_id": install_id,
+        "timestamp": ts,
+        "vars": {},
+    }
 
     for var in spec.keys():
         try:
@@ -234,7 +238,7 @@ def register_toolchain(install_id: str, install_root: Path) -> None:
         _save_state(state)
 
 
-def deregister_toolchain(install_id: str) -> None:
+def unregister_toolchain(install_id: str) -> None:
     """
     Undo the env.json changes for a previously-registered install_id.
     Only the entries recorded in that install's env.json will be removed.

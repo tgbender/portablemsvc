@@ -9,7 +9,7 @@
 - Prune unneeded files (debug symbols, telemetry, etc.) to minimize disk usage
 - Generate `env.json`, `activate.cmd`, `activate.ps1`, and `activate.xsh` for easy environment setup
 - Support for xonsh, PowerShell, and Command Prompt activation
-- Register/deregister toolchains in **HKCU\Environment**, with automatic PATH backup
+- Register/unregister toolchains in **HKCU\Environment**, with automatic PATH backup
 - Maintain multiple portable installs side-by-side via a simple JSON database
 - Plumbum-based CLI with subcommands for listing, installing, and managing toolchains
 
@@ -54,7 +54,7 @@ Run `portablemsvc --help` to view global options and subcommands.
 - `list` - List installed toolchains
 - `install` - Install a portable toolchain
 - `register` - Register toolchain into HKCU\Environment
-- `deregister` - Deregister toolchain from HKCU\Environment
+- `unregister` - Unregister toolchain from HKCU\Environment
 - `install-from-lockfile` - Reproducible install from a lockfile
 - `get-path` - Get install path for build scripts
 
@@ -115,7 +115,7 @@ Displays for each install:
 - **Host & Targets**
 - **Installed at** timestamp
 
-#### Register / Deregister
+#### Register / Unregister
 
 - Register the toolchain into your user environment:
 
@@ -123,10 +123,10 @@ Displays for each install:
   portablemsvc register [--id <install_id>]
   ```
 
-- Deregister (restore original PATH):
+- Unregister (restore original PATH):
 
   ```bat
-  portablemsvc deregister [--id <install_id>]
+  portablemsvc unregister [--id <install_id>]
   ```
 
 ## Example Workflow
@@ -187,7 +187,7 @@ Displays for each install:
 7. **Cleanup**:
 
    ```bat
-   portablemsvc deregister
+   portablemsvc unregister
    ```
 
 ## Build Script Integration
