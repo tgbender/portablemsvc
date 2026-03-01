@@ -140,6 +140,16 @@ def _setup_msdia140(output_dir: Path, msvc_version: str, host: str, targets: Lis
     dst = output_dir / "VC/Tools/MSVC" / msvc_version / f"bin/Host{host}"
     src = output_dir / "DIA%20SDK/bin" / MSDIA140_PATHS[host]
 
+    if not src.exists():
+        candidates = list(src.parent.glob("msdia*.dll")) if src.parent.exists() else []
+        if candidates:
+            src = candidates[0]
+        else:
+            logger.warning(
+                "msdia DLL not found — debug symbol support (DIA SDK) will be unavailable"
+            )
+            return
+
     for target in targets:
         shutil.copyfile(src, dst / target / src.name)
 
