@@ -1,4 +1,3 @@
-import json
 import logging
 import shutil
 from pathlib import Path
@@ -15,11 +14,9 @@ from .install import install_msvc_components
 from .install_status import (
     is_version_installed,
     get_installed_versions,
-    save_installed_version,
 )
 from .install import _generate_env_spec, _write_activation_scripts
 from .lockfile import Lockfile
-from .extract import _extract_zip_file, _extract_msi_file
 
 logger = logging.getLogger(__name__)
 

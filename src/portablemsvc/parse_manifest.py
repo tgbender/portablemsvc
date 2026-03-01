@@ -212,7 +212,9 @@ def parse_vs_manifest(
         selected_sdk = _select_sdk_version(sdk_versions, sdk_version)
 
         # Get package lists
-        msvc_packages = get_msvc_packages(selected_msvc["package_version"], host, targets)
+        msvc_packages = get_msvc_packages(
+            selected_msvc["package_version"], host, targets
+        )
         sdk_packages = get_sdk_packages(targets)
 
         # Resolve redist package dependencies

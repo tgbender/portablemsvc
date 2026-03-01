@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class MsiExtractionError(Exception):
     """Raised when MSI extraction fails or produces no output."""
+
     pass
 
 
@@ -73,9 +74,7 @@ def _extract_msi_file(msi_path: Path, destination: Path) -> Set[Path]:
 
     msiexec = local["msiexec.exe"]
     try:
-        msiexec[
-            "/a", str(msi_path), "/quiet", "/qn", f"TARGETDIR={target_dir}"
-        ]()
+        msiexec["/a", str(msi_path), "/quiet", "/qn", f"TARGETDIR={target_dir}"]()
     except ProcessExecutionError as e:
         raise MsiExtractionError(
             f"MSI extraction failed for {msi_path.name}: "

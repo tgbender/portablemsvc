@@ -17,18 +17,18 @@ def test_parse_vs_manifest_basic():
         assert isinstance(result, dict)
         assert "msvc_versions" in result
         assert "sdk_versions" in result
-        
+
         # Updated key names for selected versions
         assert "selected_msvc" in result
         assert "toolset_version" in result["selected_msvc"]
         assert "package_version" in result["selected_msvc"]
         assert "package_id" in result["selected_msvc"]
-        
+
         assert "selected_sdk" in result
         assert "build_number" in result["selected_sdk"]
         assert "version" in result["selected_sdk"]
         assert "package_id" in result["selected_sdk"]
-        
+
         assert "msvc_packages" in result
         assert "sdk_packages" in result
     except Exception as e:

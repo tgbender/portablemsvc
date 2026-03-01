@@ -240,7 +240,9 @@ set LIB=%~dp0VC\Tools\MSVC\{msvc_version}\lib\{target};%~dp0Windows Kits\10\Lib\
         (output_dir / f"setup_{target}.bat").write_text(setup_content)
 
 
-def _detect_msvc_vctools_version(output_dir: Path, host: str, primary_target: str) -> str:
+def _detect_msvc_vctools_version(
+    output_dir: Path, host: str, primary_target: str
+) -> str:
     """
     Detect the actual on-disk VCToolsVersion by scanning VC/Tools/MSVC/.
 
@@ -257,10 +259,9 @@ def _detect_msvc_vctools_version(output_dir: Path, host: str, primary_target: st
         reverse=True,
     )
     for d in dirs:
-        if (
-            (d / "include").exists()
-            and (d / f"bin/Host{host}/{primary_target}/cl.exe").exists()
-        ):
+        if (d / "include").exists() and (
+            d / f"bin/Host{host}/{primary_target}/cl.exe"
+        ).exists():
             return d.name
     raise ValueError(
         f"Cannot detect VCToolsVersion: no directory under {msvc_path} "
@@ -426,7 +427,9 @@ def _collect_tool_versions(
             pe = pefile.PE(str(tool_path), fast_load=True)
             try:
                 pe.parse_data_directories(
-                    directories=[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_RESOURCE"]]
+                    directories=[
+                        pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_RESOURCE"]
+                    ]
                 )
 
                 if hasattr(pe, "FileInfo") and pe.FileInfo:
@@ -471,7 +474,12 @@ def _generate_env_spec(
     """
     install_root = install_root.resolve()
     msvc_bin_root = (
-        install_root / "VC" / "Tools" / "MSVC" / msvc_vctools_version / f"bin/Host{host}"
+        install_root
+        / "VC"
+        / "Tools"
+        / "MSVC"
+        / msvc_vctools_version
+        / f"bin/Host{host}"
     )
     # Pick a primary target for CC/CXX/AR; first requested, or host as fallback
     primary_tgt = targets[0] if targets else host
@@ -497,7 +505,9 @@ def _generate_env_spec(
         # classic VS variable pointing at VC root
         "VCINSTALLDIR": str(install_root / "VC") + "\\",
         # legacy compatibility variables
-        "VCToolsInstallDir": str(install_root / "VC" / "Tools" / "MSVC" / msvc_vctools_version)
+        "VCToolsInstallDir": str(
+            install_root / "VC" / "Tools" / "MSVC" / msvc_vctools_version
+        )
         + "\\",
         "WindowsSDKDir": str(install_root / "Windows Kits" / "10") + "\\",
     }
@@ -542,7 +552,15 @@ def _generate_env_spec(
     lib_entries: List[str] = []
     for tgt in targets:
         lib_entries += [
-            str(install_root / "VC" / "Tools" / "MSVC" / msvc_vctools_version / "lib" / tgt),
+            str(
+                install_root
+                / "VC"
+                / "Tools"
+                / "MSVC"
+                / msvc_vctools_version
+                / "lib"
+                / tgt
+            ),
             *(
                 str(
                     install_root
@@ -629,11 +647,11 @@ def _write_activation_scripts(
         '$json = Get-Content "$here\\env.json" -Raw | ConvertFrom-Json',
         "",
         "# set portable version metadata",
-        '$env:PORTABLE_MSVC_TOOLSET_VERSION  = $json.PORTABLE_MSVC_TOOLSET_VERSION',
-        '$env:PORTABLE_MSVC_PACKAGE_VERSION  = $json.PORTABLE_MSVC_PACKAGE_VERSION',
-        '$env:PORTABLE_MSVC_VCTOOLS_VERSION  = $json.PORTABLE_MSVC_VCTOOLS_VERSION',
-        '$env:PORTABLE_SDK_BUILD_NUMBER      = $json.PORTABLE_SDK_BUILD_NUMBER',
-        '$env:PORTABLE_SDK_VERSION           = $json.PORTABLE_SDK_VERSION',
+        "$env:PORTABLE_MSVC_TOOLSET_VERSION  = $json.PORTABLE_MSVC_TOOLSET_VERSION",
+        "$env:PORTABLE_MSVC_PACKAGE_VERSION  = $json.PORTABLE_MSVC_PACKAGE_VERSION",
+        "$env:PORTABLE_MSVC_VCTOOLS_VERSION  = $json.PORTABLE_MSVC_VCTOOLS_VERSION",
+        "$env:PORTABLE_SDK_BUILD_NUMBER      = $json.PORTABLE_SDK_BUILD_NUMBER",
+        "$env:PORTABLE_SDK_VERSION           = $json.PORTABLE_SDK_VERSION",
         "",
         "# set simple vars",
         "$env:VSCMD_ARG_HOST_ARCH = $json.VSCMD_ARG_HOST_ARCH",

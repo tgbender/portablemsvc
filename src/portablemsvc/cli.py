@@ -385,9 +385,7 @@ def get_activate(
         None, "--lockfile", help="Path to portablemsvc.lock to find matching install"
     ),
     shell: str = typer.Option(
-        "auto",
-        "--shell",
-        help="Shell type (auto|cmd|powershell|ps|xonsh)"
+        "auto", "--shell", help="Shell type (auto|cmd|powershell|ps|xonsh)"
     ),
 ) -> None:
     """Output the activation command for the specified toolchain."""
@@ -418,7 +416,7 @@ def get_activate(
 
             typer.echo(
                 f"Error: No install found for lockfile (MSVC {msvc_ver}, SDK {sdk_ver})",
-                err=True
+                err=True,
             )
             raise typer.Exit(1)
 
@@ -428,11 +426,11 @@ def get_activate(
             raise typer.Exit(1)
 
         if install_id:
-            rec = installs.get(install_id)
-            if not rec:
+            candidate = installs.get(install_id)
+            if candidate is None:
                 typer.echo(f"Error: No installation with ID '{install_id}'", err=True)
                 raise typer.Exit(1)
-            return install_id, rec
+            return install_id, candidate
 
         # Pick the installation with the highest MSVC version (newest)
         def version_key(item: tuple[str, dict]) -> tuple[int, ...]:
@@ -451,6 +449,7 @@ def get_activate(
         # Check parent process name
         try:
             import psutil
+
             parent = psutil.Process().parent()
             if parent:
                 parent_name = parent.name().lower()

@@ -278,11 +278,17 @@ def test_tool_versions_in_env_json(normal_test_install, lockfile_test_install):
         env = json.loads(env_path.read_text())
 
         # Check new portable version keys exist
-        assert "PORTABLE_MSVC_TOOLSET_VERSION" in env, f"{name} missing PORTABLE_MSVC_TOOLSET_VERSION"
-        assert "PORTABLE_MSVC_PACKAGE_VERSION" in env, f"{name} missing PORTABLE_MSVC_PACKAGE_VERSION"
-        assert "PORTABLE_SDK_BUILD_NUMBER" in env, f"{name} missing PORTABLE_SDK_BUILD_NUMBER"
+        assert "PORTABLE_MSVC_TOOLSET_VERSION" in env, (
+            f"{name} missing PORTABLE_MSVC_TOOLSET_VERSION"
+        )
+        assert "PORTABLE_MSVC_PACKAGE_VERSION" in env, (
+            f"{name} missing PORTABLE_MSVC_PACKAGE_VERSION"
+        )
+        assert "PORTABLE_SDK_BUILD_NUMBER" in env, (
+            f"{name} missing PORTABLE_SDK_BUILD_NUMBER"
+        )
         assert "PORTABLE_SDK_VERSION" in env, f"{name} missing PORTABLE_SDK_VERSION"
-        
+
         assert "TOOL_VERSIONS" in env, f"{name} install missing TOOL_VERSIONS"
         tool_versions = env["TOOL_VERSIONS"]
 

@@ -57,11 +57,7 @@ def _backup_all_env_vars(install_id: str, spec: Dict[str, Any]) -> Path:
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # Collect current values for all vars we're about to modify
-    backup_data = {
-        "install_id": install_id,
-        "timestamp": ts,
-        "vars": {}
-    }
+    backup_data: dict[str, Any] = {"install_id": install_id, "timestamp": ts, "vars": {}}
 
     for var in spec.keys():
         try:
@@ -295,8 +291,10 @@ def check_long_paths_enabled() -> bool:
     """
     try:
         import winreg
-        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
-                            r"SYSTEM\CurrentControlSet\Control\FileSystem") as key:
+
+        with winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\FileSystem"
+        ) as key:
             value, _ = winreg.QueryValueEx(key, "LongPathsEnabled")
             return value == 1
     except (OSError, ImportError):

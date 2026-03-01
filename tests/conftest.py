@@ -31,8 +31,6 @@ def pytest_collection_modifyitems(config, items):
                 item.add_marker(skip_install)
 
 
-
-
 @pytest.fixture(scope="session")
 def project_root(pytestconfig) -> Path:
     """Return project root directory."""

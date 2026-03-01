@@ -1,6 +1,8 @@
 # CONFIG.py setup.
 import os
 from pathlib import Path
+from typing import NewType
+
 from platformdirs import (
     user_config_dir,
     user_data_dir,
@@ -52,8 +54,6 @@ def first(items, cond=lambda x: True):
     """Find the first item that matches the condition."""
     return next((item for item in items if cond(item)), None)
 
-
-from typing import NewType
 
 # MSVC: Toolset version is what users specify (e.g., "14.44")
 # Package version is the full build (e.g., "14.44.17.14") that appears in folders

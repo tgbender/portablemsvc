@@ -1,7 +1,6 @@
 """Tests that create session-scoped installs. Skipped by default."""
 
 import json
-import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
 

@@ -13,6 +13,7 @@ dependencies = [
   "typer>=0.15.0,<1.0.0",
   "platformdirs>=4.3.8,<5.0.0",
   "pefile>=2024.8.26",
+  "psutil>=5.9.0",
 ]
 
 [project.scripts]
@@ -59,7 +60,7 @@ pythonVersion = "3.10"
 reportMissingImports = "none"
 reportMissingTypeStubs = "none"
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
   "pytest>=9.0.0,<10.0.0",
   "pytest-mock>=3.14.0,<4.0.0",

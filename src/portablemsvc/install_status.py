@@ -191,7 +191,10 @@ def is_version_installed(
             continue
 
         # Check version match
-        if msvc_toolset_version is not None and details.get("msvc_toolset_version") != msvc_toolset_version:
+        if (
+            msvc_toolset_version is not None
+            and details.get("msvc_toolset_version") != msvc_toolset_version
+        ):
             continue
 
         # Check SDK build number match
