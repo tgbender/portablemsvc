@@ -1,0 +1,114 @@
+[tools]
+# Using latest for tools. use a mise lockfile for reproducibility.
+trufflehog = "latest" # Trusted as it's a widely used tool build by a company that specializes in security
+uv = "latest"
+prek = "latest"
+ruff = "latest"
+bun = "latest"
+taplo = "latest"
+# Windows doesn't currently work with bunx and npm tools. We use bun directly instead
+#"npm:prettier" = "latest"
+#"npm:pyright" = "latest"
+
+[env]
+MISE_NPM_PACKAGE_MANAGER = "bun" # Use bun instead of npm for faster installs
+DO_NOT_TRACK = "1"               # Disable tracking for that respect this variable
+
+[settings]
+npm.package_manager = "bun"
+windows_default_inline_shell_args = "powershell -NoProfile -Command"
+python.uv_venv_auto = true
+
+### SETUP TASKS
+[tasks.setup-editable]
+description = "setup the python venv and such for development and testing. Will install an editable install of the package into the venv"
+run = "uv pip install --editable ."
+depends = ["uv-sync-all"]
+
+[tasks.setup-hooks]
+description = "Install pre-commit hooks"
+run = "prek install"
+
+[tasks.uv-sync-all]
+description = "Sync Python tools with uv"
+run = "uv sync --all-extras"
+
+### PRE-COMMIT STUFF
+[tasks.trufflehog-scan]
+description = "Scan the git history for secrets using trufflehog. To be used in precommit. Network calls disabled"
+run = "trufflehog git file://. --since-commit=HEAD~1 --no-verification --no-update --fail"
+
+### LINTERS AND FORMATTERS
+[tasks.format]
+#aliases = ["fix"]
+description = "Run all auto-fixes and formatting"
+depends = ["ruff-fix", "ruff-format", "prettier-format", "taplo-format"]
+
+[tasks.lint]
+description = "Run all linters/type checks"
+depends = [
+  "ruff-check",
+  "mypy",
+  "prettier-check",
+  "taplo-check",
+  "pyright-check",
+]
+
+[tasks.ruff-check]
+description = "Check code with ruff"
+run = "ruff check ."
+
+[tasks.ruff-fix]
+description = "Auto-fix ruff lint violations"
+run = "ruff check --fix ."
+
+[tasks.ruff-format]
+description = "Format code with ruff"
+run = "ruff format ."
+
+[tasks.mypy]
+description = "Run mypy type checks"
+run = "uv run mypy ."
+
+[tasks.pyright-check]
+description = "Run pyright type checks"
+dir = "{{ config_root }}"                                                                  # Directory containing mise.toml
+run = "bunx pyright --pythonpath \"{{ config_root }}/.venv/bin/python\" ."
+run_windows = "bunx pyright --pythonpath \"{{ config_root }}/.venv/Scripts/python.exe\" ."
+
+[tasks.prettier-format]
+description = "Format non-Python files (md, toml, json, yaml)"
+run = "git ls-files '*.md' '*.json' '*.yaml' '*.yml' | bunx prettier --write '**/*.{md,json,yaml,yml}'"
+run_windows = "bunx prettier --write @(git ls-files '*.md' '*.json' '*.yaml' '*.yml')"
+
+[tasks.prettier-check]
+description = "Check non-Python file formatting"
+run = "git ls-files -z '*.md' '*.json' '*.yaml' '*.yml' | xargs -0 bunx prettier --check"
+run_windows = "bunx prettier --check @(git ls-files '*.md' '*.json' '*.yaml' '*.yml')"
+
+[tasks.taplo-format]
+description = "Format TOML files"
+run = "taplo fmt **/*.toml"
+
+[tasks.taplo-check]
+description = "Check TOML file formatting"
+run = "taplo fmt --check **/*.toml"
+
+### TESTS
+[tasks.test]
+description = "Run fast tests (excludes slow_install and integration tests)"
+run = "uv run pytest"
+
+[tasks.test-most]
+description = "Run most tests including slow_installs but not network_heavy"
+run = "uv run pytest --run-installs -m 'not network_heavy'"
+
+[tasks.test-all]
+description = "Run all tests including integration (downloads ~20GB)"
+run = "uv run pytest --run-installs"
+
+### OTHER
+[tasks.check-venv]
+description = "validate that the python path is correctly set to the venv."
+dir = "{{ config_root }}"
+run_windows = "if (-not ((Get-Command python).Source -like \"*$PWD*\")) { Write-Error 'Python not in venv'; exit 1 }"

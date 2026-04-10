@@ -1,53 +1,68 @@
 [project]
 name = "portablemsvc"
-version = "0.1.0"
+version = "0.2.0"
 description = "Installs Portable MSVC tools in user space"
 readme = "README.md"
-authors = [
-  { name="Travis Bender"},
-]
-requires-python = ">=3.9"
+authors = [{ name = "Travis Bender" }]
+requires-python = ">=3.10"
 dependencies = [
-    "requests>=2.32.0",
-    "filelock>=3.0.0",
-    "winregenv>=0.2.0",
-    "plumbum>=1.9.0",
-    "platformdirs>=4.3.8"
+  "requests>=2.32.0,<3.0.0",
+  "filelock>=3.0.0,<4.0.0",
+  "winregenv>=0.2.0,<0.3.0",
+  "plumbum>=1.9.0,<2.0.0",
+  "typer>=0.15.0,<1.0.0",
+  "platformdirs>=4.3.8,<5.0.0",
+  "pefile>=2024.8.26",
+  "psutil>=5.9.0",
 ]
 
 [project.scripts]
-portablemsvc = "portablemsvc.cli:PortableMSVCApp"
+portablemsvc = "portablemsvc.cli:app"
 
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build>=0.10.3,<0.11.0"]
+build-backend = "uv_build"
 
-keywords = ["compiler", "environment","cli"]
+keywords = ["compiler", "environment", "cli"]
 
 license = "MIT"
 license-files = ["LICENSE"]
 
 classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Developers",
-    "Intended Audience :: System Administrators",
-    "Operating System :: Microsoft :: Windows",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Topic :: System :: Systems Administration",
-    "Topic :: Software Development :: Libraries :: Python Modules",
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: System Administrators",
+  "Operating System :: Microsoft :: Windows",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: System :: Systems Administration",
+  "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"
-
-[project.optional-dependencies]
-dev = [
-    "pytest>=8.3.5",
-    "pytest-mock>=3.14.0",
+markers = [
+  "slow_install: marks tests that download and install MSVC via CLI (very slow, ~10GB)",
+  "cli: marks tests that invoke portablemsvc CLI",
+  "network_heavy: marks tests that directly download MSVC packages (huge bandwidth, ~10GB)",
 ]
 
+[tool.mypy]
+ignore_missing_imports = true
+disable_error_code = ["import-untyped"]
+warn_unused_ignores = true
+
+[tool.pyright]
+pythonVersion = "3.10"
+reportMissingImports = "none"
+reportMissingTypeStubs = "none"
+
+[dependency-groups]
+dev = [
+  "pytest>=9.0.0,<10.0.0",
+  "pytest-mock>=3.14.0,<4.0.0",
+  "mypy>=1.19.1,<2.0.0",
+]

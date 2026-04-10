@@ -1,9 +1,8 @@
-
 import pytest
-from pathlib import Path
 from portablemsvc.controller import install_msvc
 
-@pytest.mark.integration
+
+@pytest.mark.network_heavy
 def test_full_msvc_zip_extract(tmp_path):
     # Run the full install pipeline (download → extract → layout)
     result = install_msvc(
@@ -12,11 +11,14 @@ def test_full_msvc_zip_extract(tmp_path):
         targets=["x64"],
         channel="release",
         accept_license=True,
-        cache=False
+        cache=False,
     )
 
     # confirm the version keys were returned
-    assert "msvc_version" in result and "sdk_version" in result
+    assert "msvc_toolset_version" in result
+    assert "msvc_package_version" in result
+    assert "sdk_build_number" in result
+    assert "sdk_version" in result
 
     # Verify that the compiler landed in VC/Tools/MSVC/.../bin/Hostx64/x64/cl.exe
     msvc_root = next((tmp_path / "VC" / "Tools" / "MSVC").iterdir())

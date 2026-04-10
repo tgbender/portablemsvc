@@ -4,28 +4,29 @@
 
 ## Features
 
-- Fetch the latest (or specified) MSVC toolset and Windows SDK from the official Visual Studio release channel  
-- Download and extract ZIPs, VSIX, MSI, and embedded CABs via `msiexec` without UI  
-- Prune unneeded files (debug symbols, telemetry, etc.) to minimize disk usage  
-- Generate `env.json`, `activate.cmd`, and `activate.ps1` for easy environment setup  
-- Register/deregister toolchains in **HKCU\Environment**, with automatic PATH backup  
-- Maintain multiple portable installs side-by-side via a simple JSON database  
-- Plumbum-based CLI with subcommands for listing, installing, and managing toolchains  
+- Fetch the latest (or specified) MSVC toolset and Windows SDK from the official Visual Studio release channel
+- Download and extract ZIPs, VSIX, MSI, and embedded CABs via `msiexec` without UI
+- Prune unneeded files (debug symbols, telemetry, etc.) to minimize disk usage
+- Generate `env.json`, `activate.cmd`, `activate.ps1`, and `activate.xsh` for easy environment setup
+- Support for xonsh, PowerShell, and Command Prompt activation
+- Register/unregister toolchains in **HKCU\Environment**, with automatic PATH backup
+- Maintain multiple portable installs side-by-side via a simple JSON database
+- Plumbum-based CLI with subcommands for listing, installing, and managing toolchains
 
 ## Requirements
 
-- **Windows 10+**  
-- **Python 3.12+**  
+- **Windows 10+**
+- **Python 3.12+**
   - May work on lower versions but not tested
-- `msiexec.exe` on PATH (standard on Windows)  
-- Required Python packages (install via `pip install .` or `pip install -r requirements.txt`):  
-  - `plumbum` (CLI framework)  
-  - `winregenv` (registry manipulation)  
-  - `filelock` (atomic file/registry locking)  
+- `msiexec.exe` on PATH (standard on Windows)
+- Required Python packages (install via `pip install .` or `pip install -r requirements.txt`):
+  - `plumbum` (CLI framework)
+  - `winregenv` (registry manipulation)
+  - `filelock` (atomic file/registry locking)
 
 ## Installation
 
-### Using UV (https://github.com/astral-sh/uv) *Recommended*
+### Using UV (https://github.com/astral-sh/uv) _Recommended_
 
 ```bat
 uv tool install git+https://github.com/tgbender/portablemsvc@main
@@ -49,17 +50,21 @@ Run `portablemsvc --help` to view global options and subcommands.
 
 ### Subcommands
 
-- `show-versions`  
-- `list`  
-- `install`  
-- `register`  
-- `deregister`  
+- `search` - Search available MSVC and SDK versions
+- `list` - List installed toolchains
+- `install` - Install a portable toolchain
+- `register` - Register toolchain into HKCU\Environment
+- `unregister` - Unregister toolchain from HKCU\Environment
+- `install-from-lockfile` - Reproducible install from a lockfile
+- `get-path` - Get install path for build scripts
 
-#### Show Available Versions
+#### Search Available Versions
 
 ```bat
-portablemsvc show-versions [--channel release|preview] [--no-cache] [--full]
+portablemsvc search [--channel release|preview] [--no-cache] [--full]
 ```
+
+Search for available MSVC and Windows SDK versions before installing.
 
 #### Install a Portable Toolchain
 
@@ -78,6 +83,22 @@ portablemsvc install
 By default, installs the latest x64 MSVC + SDK under:
 `%LOCALAPPDATA%\portable\msvc\msvc-<full_version>_sdk-<build>`
 
+**Environment Variable Overrides:**
+
+| Variable              | Purpose                           |
+| --------------------- | --------------------------------- |
+| `PORTABLEMSVC_CACHE`  | Override download cache directory |
+| `PORTABLEMSVC_DATA`   | Override install directory        |
+| `PORTABLEMSVC_CONFIG` | Override config directory         |
+| `PORTABLEMSVC_TEMP`   | Override temp directory           |
+
+**Example:**
+
+```bat
+set PORTABLEMSVC_CACHE=D:\cache\portablemsvc
+portablemsvc install
+```
+
 #### List Installed Toolchains
 
 ```bat
@@ -86,27 +107,27 @@ portablemsvc list
 
 Displays for each install:
 
-- **ID**  
-- **Path**  
-- **MSVC (manifest)** version  
-- **MSVC (internal)** build folder version  
-- **SDK** version  
-- **Host & Targets**  
-- **Installed at** timestamp  
+- **ID**
+- **Path**
+- **MSVC (manifest)** version
+- **MSVC (internal)** build folder version
+- **SDK** version
+- **Host & Targets**
+- **Installed at** timestamp
 
-#### Register / Deregister
+#### Register / Unregister
 
 - Register the toolchain into your user environment:
 
-    ```bat
-    portablemsvc register [--id <install_id>]
-    ```
+  ```bat
+  portablemsvc register [--id <install_id>]
+  ```
 
-- Deregister (restore original PATH):
+- Unregister (restore original PATH):
 
-    ```bat
-    portablemsvc deregister [--id <install_id>]
-    ```
+  ```bat
+  portablemsvc unregister [--id <install_id>]
+  ```
 
 ## Example Workflow
 
@@ -123,7 +144,27 @@ Displays for each install:
    portablemsvc register
    ```
 
-3. **Open a fresh** Command Prompt or PowerShell. Verify:
+3. **Activate** the environment (choose one):
+
+   **Command Prompt:**
+
+   ```bat
+   activate.cmd
+   ```
+
+   **PowerShell:**
+
+   ```powershell
+   .\activate.ps1
+   ```
+
+   **xonsh:**
+
+   ```xonsh
+   source activate.xsh
+   ```
+
+4. **Verify:**
 
    ```bat
    where link.exe
@@ -131,30 +172,87 @@ Displays for each install:
    cargo build        # should invoke link.exe from your portable MSVC
    ```
 
-4. **List** all installs:
+5. **List** all installs:
 
    ```bat
    portablemsvc list
    ```
 
-5. **Switch** to another install later:
+6. **Switch** to another install later:
 
    ```bat
    portablemsvc register --id <other_install_id>
    ```
 
-6. **Cleanup**:
+7. **Cleanup**:
 
    ```bat
-   portablemsvc deregister
+   portablemsvc unregister
    ```
+
+## Build Script Integration
+
+The `get-path` command outputs the installation root for use in build scripts:
+
+```bash
+# Get path for latest install
+MSVC_ROOT=$(portablemsvc get-path)
+
+# Get path by lockfile (matches MSVC/SDK versions)
+MSVC_ROOT=$(portablemsvc get-path --lockfile ./portablemsvc.lock)
+
+# Get path by install ID
+MSVC_ROOT=$(portablemsvc get-path --id <install_id>)
+
+# Use in build
+source "$MSVC_ROOT/activate.cmd"
+nmake /f Makefile
+```
+
+The `env.json` file contains all environment variables needed for building:
+
+- `CC`, `CXX`, `AR` - Compiler paths
+- `PATH`, `INCLUDE`, `LIB` - Search paths
+- `TOOL_VERSIONS` - PE file versions of tools
+
+## CI/CD Usage
+
+For reproducible builds in CI, use a lockfile:
+
+```bat
+# Install and generate lockfile (commit this to your repo)
+portablemsvc install --accept-license --output .\msvc
+
+# In CI, install from the lockfile for bit-for-bit reproducibility
+portablemsvc install-from-lockfile portablemsvc.lock --accept-license
+```
+
+**GitHub Actions Example:**
+
+```yaml
+- uses: actions/setup-python@v5
+  with:
+    python-version: "3.12"
+- uses: astral-sh/setup-uv@v5
+- run: uv tool install portablemsvc
+- run: portablemsvc install-from-lockfile portablemsvc.lock --accept-license
+  env:
+    PORTABLEMSVC_CACHE: D:\cache\portablemsvc
+# Get the path and use it
+- run: |
+    MSVC_PATH=$(portablemsvc get-path --lockfile portablemsvc.lock)
+    "$MSVC_PATH/activate.cmd" && cargo build --release
+  shell: bash
+```
 
 ## Contributing
 
-Contributions and issues are welcome!  
-- Run `flake8` and `pytest` to ensure style and tests pass  
-- Keep PRs focused on a single feature or bugfix  
-- Add tests for all new behavior  
+Contributions and issues are welcome!
+
+- Run `mise run lint` to check code style and types
+- Run `mise run test` to run the test suite
+- Keep PRs focused on a single feature or bugfix
+- Add tests for all new behavior
 
 ## License
 
@@ -169,7 +267,30 @@ By using this tool to fetch, install, or manage those toolchains, you agree to c
 
 Huge thanks to [@mmozeiko](https://github.com/mmozeiko) for foundational work on portable MSVC tooling inspiration.
 
-## TODO / Testing 🔍
+## Testing 🔍
+
+Run the test suite:
+
+```bash
+# Fast tests (no downloads)
+mise run test
+
+# Most tests including slow_installs but not integration (~20GB downloads)
+mise run test-most
+
+# Full tests including integration (~20GB downloads)
+mise run test-all
+```
+
+Test coverage includes:
+
+- C/C++ compilation with Windows SDK headers
+- Static library creation with `lib.exe`
+- Tool version capture (PE file metadata)
+- Environment variable verification
+- Lockfile-based reproducible installs
+
+## TODO
 
 - Verify that `portablemsvc install --target=x64,arm64,arm`
   - all specified host/target tool directories appear under `VC/Tools/MSVC/.../bin`

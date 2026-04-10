@@ -1,209 +1,493 @@
-from plumbum.cli import Application, SwitchAttr, Flag
-import logging, sys
+import logging
+import os
+import sys
 from pathlib import Path
+from typing import Optional
 
-from .config      import DEFAULT_HOST, ALL_HOSTS, DEFAULT_TARGET, ALL_TARGETS
-from .controller  import get_available_versions, install_msvc
-from .manifest    import get_license_url, get_vs_manifest
+import typer
+
+from .config import DEFAULT_HOST, ALL_HOSTS, DEFAULT_TARGET, ALL_TARGETS
+from .controller import get_available_versions, install_msvc
+from .manifest import get_license_url, get_vs_manifest
 from .parse_manifest import parse_vs_manifest
-from .install_status   import get_installed_versions
+from .install_status import get_installed_versions
 
 # setup a sane default logger
 logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
 logger = logging.getLogger(__name__)
 
+app = typer.Typer(
+    name="portablemsvc",
+    help="portable-msvc: manage, list and install MSVC toolchains.",
+)
 
-class PortableMSVCApp(Application):
+
+@app.callback()
+def main(
+    verbose: bool = typer.Option(False, "-v", "--verbose", help="Enable debug logging"),
+) -> None:
     """portable-msvc: manage, list and install MSVC toolchains."""
-    PROG_NAME = "portablemsvc"
-    VERSION   = "0.1.0"
-
-    # global flags
-    verbose = Flag("-v", "--verbose", help="Enable debug logging")
+    if verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
 
 
-
-@PortableMSVCApp.subcommand("list")
-class ListInstalled(Application):
+@app.command("list")
+def list_installed(
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
     """List toolchains recorded in the status database."""
-    PROG_NAME = "list"
+    if json_output:
+        import json
+        import logging
 
-    def main(self):
+        # Suppress filelock logging to keep stdout clean for JSON parsing
+        logging.getLogger("filelock").setLevel(logging.WARNING)
         installs = get_installed_versions()
-        if not installs:
-            print("No toolchains recorded.")
-            return
+        typer.echo(json.dumps(installs, indent=2))
+        return
 
-        for install_id, rec in installs.items():
-            print(f"ID:           {install_id}")
-            print(f"  Path:       {rec.get('path', 'N/A')}")
-            print(f"  MSVC (manifest): {rec.get('msvc_version', 'N/A')}")
-            if rec.get("msvc_internal_version") is not None:
-                print(f"  MSVC (internal): {rec['msvc_internal_version']}")
-            print(f"  SDK:        {rec.get('sdk_version', 'N/A')}")
-            print(f"  Host:       {rec.get('host', 'N/A')}")
-            targets = rec.get('targets', [])
-            print(f"  Targets:    {', '.join(targets) if targets else 'N/A'}")
-            print(f"  Installed:  {rec.get('installed_at', 'N/A')}")
+    installs = get_installed_versions()
 
+    if not installs:
+        typer.echo("No toolchains recorded.")
+        return
 
-@PortableMSVCApp.subcommand("show-versions")
-class ShowVersions(Application):
-    """Show available MSVC and Windows SDK versions."""
-    PROG_NAME = "show-versions"
-
-    channel  = SwitchAttr("--channel", str, default="release",
-                         help="Which channel to query (release|preview)")
-    no_cache = Flag("--no-cache", help="Disable manifest cache")
-    full     = Flag("--full",     help="Show full MSVC x.y.z.w build versions")
-
-    def main(self):
-        cache = not self.no_cache
-        if self.full:
-            # re-parse to get raw full build strings
-            vs_manifest = get_vs_manifest(channel=self.channel, cache=cache)
-            parsed      = parse_vs_manifest(
-                vs_manifest,
-                host=DEFAULT_HOST,
-                targets=[DEFAULT_TARGET],
-            )
-            full_versions = sorted(
-                ".".join(pid.split(".")[2:6])
-                for pid in parsed["msvc_versions"].values()
-            )
-            print("MSVC full versions:", " ".join(full_versions))
-            # Also show SDK versions in --full mode
-            sdk_versions = sorted(parsed["sdk_versions"].keys())
-            print("SDK versions: ",      " ".join(sdk_versions))
-            return
-
-        # default (major.minor) listing
-        versions = get_available_versions(channel=self.channel, cache=cache)
-        msvc_versions = sorted(versions["msvc"])
-        sdk_versions  = sorted(versions["sdk"])
-        print("MSVC versions:", " ".join(msvc_versions))
-        print("SDK versions: ", " ".join(sdk_versions))
+    for install_id, rec in installs.items():
+        typer.echo(f"ID:           {install_id}")
+        typer.echo(f"  Path:       {rec.get('path', 'N/A')}")
+        typer.echo(f"  MSVC Toolset: {rec.get('msvc_toolset_version', 'N/A')}")
+        typer.echo(f"  MSVC Package: {rec.get('msvc_package_version', 'N/A')}")
+        typer.echo(f"  MSVC VCTools: {rec.get('msvc_vctools_version', 'N/A')}")
+        typer.echo(f"  SDK Build:    {rec.get('sdk_build_number', 'N/A')}")
+        typer.echo(f"  SDK Version:  {rec.get('sdk_version', 'N/A')}")
+        typer.echo(f"  Host:       {rec.get('host', 'N/A')}")
+        targets = rec.get("targets", [])
+        typer.echo(f"  Targets:    {', '.join(targets) if targets else 'N/A'}")
+        typer.echo(f"  Installed:  {rec.get('installed_at', 'N/A')}")
 
 
-@PortableMSVCApp.subcommand("install")
-class Install(Application):
-    """Install MSVC & Windows SDK into a portable layout."""
-    PROG_NAME = "install"
+@app.command("search")
+def search(
+    channel: str = typer.Option(
+        "release", "--channel", help="Which channel to query (release|preview)"
+    ),
+    no_cache: bool = typer.Option(False, "--no-cache", help="Disable manifest cache"),
+    full: bool = typer.Option(
+        False, "--full", help="Show full MSVC x.y.z.w build versions"
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
+    """Search available MSVC and Windows SDK versions."""
+    cache = not no_cache
 
-    # selection
-    msvc_version   = SwitchAttr("--msvc-version", str, help="Force specific MSVC version")
-    sdk_version    = SwitchAttr("--sdk-version",  str, help="Force specific Windows SDK version")
-    channel        = SwitchAttr("--channel",      str, default="release",
-                                help="Which channel to install (release|preview)")
-    accept_license = Flag("--accept-license",    help="Automatically accept license")
-
-    # cache only
-    no_cache = Flag("--no-cache", help="Disable downloads cache")
-
-    # architecture & output
-    host   = SwitchAttr("--host",   str, default=DEFAULT_HOST,
-                        help=f"Host arch ({','.join(ALL_HOSTS)})")
-    target = SwitchAttr("--target", str, list=True,
-                        help=f"Target archs ({','.join(ALL_TARGETS)})")
-    output = SwitchAttr("--output", str,
-                        help="Custom installation output directory")
-
-    def main(self):
-        # compute flags
-        cache = not self.no_cache
-
-        # validate host & normalize targets (default = host, support "all")
-        if self.host not in ALL_HOSTS:
-            self.fatal(f"Unknown host architecture: {self.host}")
-        raw_targets = self.target or [self.host]
-        # if user asked for "all" (case‐insensitive), expand to every target
-        if any(rt.lower() == "all" for rt in raw_targets):
-            targets = ALL_TARGETS.copy()
-        else:
-            targets = []
-            for rt in raw_targets:
-                t = rt.lower()
-                if t not in ALL_TARGETS:
-                    self.fatal(f"Unknown target architecture: {rt}")
-                targets.append(t)
-
-        # ——— LICENSE ACCEPTANCE ———
-        lic_url = get_license_url(channel=self.channel, cache=cache)
-        print(f"License text available at:\n  {lic_url}\n")
-        accepted = self.accept_license
-        if not accepted:
-            ans = input("Do you accept the license terms? [y/N] ")
-            accepted = ans.strip().lower() in ("y", "yes")
-        if not accepted:
-            self.fatal("License not accepted. Aborting.")
-
-        # ——— DELEGATE TO CONTROLLER ———
-        install_msvc(
-            output_dir=Path(self.output) if self.output else None,
-            host=self.host,
-            targets=targets,
-            msvc_version=self.msvc_version,
-            sdk_version=self.sdk_version,
-            channel=self.channel,
-            cache=cache,
-            accept_license=accepted,
+    if full:
+        # re-parse to get raw full build strings
+        vs_manifest, _ = get_vs_manifest(channel=channel, cache=cache)
+        parsed = parse_vs_manifest(
+            vs_manifest,
+            host=DEFAULT_HOST,
+            targets=[DEFAULT_TARGET],
         )
+        full_versions = sorted(
+            ".".join(pid.split(".")[2:6]) for pid in parsed["msvc_versions"].values()
+        )
+        sdk_versions = sorted(parsed["sdk_versions"].keys())
+
+        if json_output:
+            import json
+
+            typer.echo(
+                json.dumps(
+                    {
+                        "msvc": full_versions,
+                        "sdk": sdk_versions,
+                    },
+                    indent=2,
+                )
+            )
+            return
+
+        typer.echo(f"MSVC full versions: {' '.join(full_versions)}")
+        typer.echo(f"SDK versions:  {' '.join(sdk_versions)}")
+        return
+
+    # default (major.minor) listing
+    versions = get_available_versions(channel=channel, cache=cache)
+    msvc_versions = sorted(versions["msvc"])
+    sdk_versions = sorted(versions["sdk"])
+
+    if json_output:
+        import json
+
+        typer.echo(json.dumps(versions, indent=2))
+        return
+
+    typer.echo(f"MSVC versions: {' '.join(msvc_versions)}")
+    typer.echo(f"SDK versions:  {' '.join(sdk_versions)}")
 
 
+@app.command("install")
+def install(
+    msvc_version: Optional[str] = typer.Option(
+        None, "--msvc-version", help="Force specific MSVC version"
+    ),
+    sdk_version: Optional[str] = typer.Option(
+        None, "--sdk-version", help="Force specific Windows SDK version"
+    ),
+    channel: str = typer.Option(
+        "release", "--channel", help="Which channel to install (release|preview)"
+    ),
+    accept_license: bool = typer.Option(
+        False, "--accept-license", help="Automatically accept license"
+    ),
+    no_cache: bool = typer.Option(False, "--no-cache", help="Disable downloads cache"),
+    host: str = typer.Option(
+        DEFAULT_HOST, "--host", help=f"Host arch ({','.join(ALL_HOSTS)})"
+    ),
+    target: list[str] = typer.Option(
+        [], "--target", help=f"Target archs ({','.join(ALL_TARGETS)})"
+    ),
+    output: Optional[str] = typer.Option(
+        None, "--output", help="Custom installation output directory"
+    ),
+) -> None:
+    """Install MSVC & Windows SDK into a portable layout."""
+    # compute flags
+    cache = not no_cache
 
-@PortableMSVCApp.subcommand("register")
-class RegisterEnv(Application):
-    install_id = SwitchAttr("--id", str,
-                           help="ID of the installation to register (omit to pick highest MSVC version)")
-    def main(self):
-        from .registry_helpers import register_toolchain
-        from .install_status   import get_installed_versions
-        from pathlib           import Path
+    # validate host & normalize targets (default = host, support "all")
+    if host not in ALL_HOSTS:
+        typer.echo(f"Error: Unknown host architecture: {host}", err=True)
+        raise typer.Exit(1)
+    raw_targets: list[str] = target if target else [host]
+    # if user asked for "all" (case-insensitive), expand to every target
+    targets: list[str]
+    if any(rt.lower() == "all" for rt in raw_targets):
+        targets = list(ALL_TARGETS)
+    else:
+        targets = []
+        for rt in raw_targets:
+            t = rt.lower()
+            if t not in ALL_TARGETS:
+                typer.echo(f"Error: Unknown target architecture: {rt}", err=True)
+                raise typer.Exit(1)
+            targets.append(t)
+
+    # ——— LICENSE ACCEPTANCE ———
+    lic_url = get_license_url(channel=channel, cache=cache)
+    typer.echo(f"License text available at:\n  {lic_url}\n")
+    accepted = accept_license
+    if not accepted:
+        ans = typer.prompt("Do you accept the license terms? [y/N]", default="N")
+        accepted = ans.strip().lower() in ("y", "yes")
+    if not accepted:
+        typer.echo("Error: License not accepted. Aborting.", err=True)
+        raise typer.Exit(1)
+
+    # ——— DELEGATE TO CONTROLLER ———
+    install_msvc(
+        output_dir=Path(output) if output else None,
+        host=host,
+        targets=targets,
+        msvc_version=msvc_version,
+        sdk_version=sdk_version,
+        channel=channel,
+        cache=cache,
+        accept_license=accepted,
+    )
+
+
+@app.command("register")
+def register(
+    install_id: Optional[str] = typer.Option(
+        None,
+        "--id",
+        help="ID of the installation to register (omit to pick highest MSVC version)",
+    ),
+) -> None:
+    """Register a toolchain into HKCU\\Environment."""
+    from .registry_helpers import register_toolchain
+
+    installs = get_installed_versions()
+    if not installs:
+        typer.echo(
+            "Error: No installations are recorded; nothing to register.", err=True
+        )
+        raise typer.Exit(1)
+
+    selected_id = install_id
+    if not selected_id:
+        # Pick the installation with the highest MSVC version (newest from MS)
+        def version_key(item: tuple[str, dict]) -> tuple[int, ...]:
+            _, rec = item
+            ver = rec.get("msvc_toolset_version", "")
+            return tuple(int(p) for p in ver.split(".") if p.isdigit())
+
+        selected_id, _ = max(installs.items(), key=version_key)
+
+    rec: Optional[dict] = installs.get(selected_id)
+    if not rec:
+        typer.echo(f"Error: No installation with ID '{selected_id}'", err=True)
+        raise typer.Exit(1)
+    # the status DB records the root path under "path"
+    install_root = rec.get("path")
+    if not install_root:
+        typer.echo(f"Error: No install path recorded for ID '{selected_id}'", err=True)
+        raise typer.Exit(1)
+    register_toolchain(selected_id, Path(install_root))
+    typer.echo(f"Registered toolchain {selected_id} into HKCU\\Environment.")
+
+
+@app.command("unregister")
+def unregister(
+    install_id: Optional[str] = typer.Option(
+        None,
+        "--id",
+        help="ID of the installation to unregister (omit for current)",
+    ),
+) -> None:
+    """Unregister a toolchain from HKCU\\Environment."""
+    from .registry_helpers import (
+        unregister_toolchain,
+        _load_state,
+        _LOCK_FILE,
+        FileLock,
+    )
+
+    iid = install_id
+    if not iid:
+        # pick up the "current" install_id from the same JSON state
+        lock = FileLock(str(_LOCK_FILE), timeout=60)
+        with lock:
+            state = _load_state()
+        iid = state.get("current")
+        if not iid:
+            typer.echo(
+                "Error: No current registration found; please specify --id", err=True
+            )
+            raise typer.Exit(1)
+
+    unregister_toolchain(iid)
+    typer.echo(f"Unregistered toolchain {iid} from HKCU\\Environment.")
+
+
+@app.command("install-from-lockfile")
+def install_from_lockfile(
+    lockfile: str = typer.Argument(..., help="Path to portablemsvc.lock file"),
+    accept_license: bool = typer.Option(
+        False, "--accept-license", help="Automatically accept license"
+    ),
+    output: Optional[str] = typer.Option(
+        None, "--output", help="Custom installation output directory"
+    ),
+) -> None:
+    """Install MSVC from a lockfile for reproducible builds."""
+    from .controller import install_from_lockfile as install_from_lockfile_impl
+
+    lic_url = "https://visualstudio.microsoft.com/license-terms/vs/"
+    typer.echo(f"License text available at:\n  {lic_url}\n")
+    accepted = accept_license
+    if not accepted:
+        ans = typer.prompt("Do you accept the license terms? [y/N]", default="N")
+        accepted = ans.strip().lower() in ("y", "yes")
+    if not accepted:
+        typer.echo("Error: License not accepted. Aborting.", err=True)
+        raise typer.Exit(1)
+
+    result = install_from_lockfile_impl(
+        lockfile_path=Path(lockfile),
+        output_dir=Path(output) if output else None,
+        accept_license=accepted,
+    )
+    typer.echo(f"Installed to: {result['path']}")
+    typer.echo(f"Install ID: {result['install_id']}")
+
+
+@app.command("get-path")
+def get_path(
+    install_id: Optional[str] = typer.Option(
+        None, "--id", help="Installation ID (omit for latest)"
+    ),
+    lockfile: Optional[str] = typer.Option(
+        None, "--lockfile", help="Path to portablemsvc.lock to find matching install"
+    ),
+) -> None:
+    """Output the installation root path for use in build scripts."""
+    import logging
+
+    from .install_status import get_installed_versions
+    from .lockfile import Lockfile
+
+    # Suppress filelock logging to keep stdout clean
+    logging.getLogger("filelock").setLevel(logging.WARNING)
+
+    if lockfile:
+        # Read lockfile to find matching installed version
+        lf = Lockfile.load(Path(lockfile))
+        lf_data = lf.to_dict()
+        resolved = lf_data.get("resolved", {})
+        msvc_ver = resolved.get("msvc", {}).get("package_version")
+        sdk_ver = resolved.get("sdk", {}).get("build_number")
+
+        installs = get_installed_versions()
+        for iid, install_rec in installs.items():
+            if (
+                install_rec.get("msvc_package_version") == msvc_ver
+                and install_rec.get("sdk_build_number") == sdk_ver
+            ):
+                typer.echo(install_rec["path"])
+                return
+
+        typer.echo(
+            f"Error: No install found for lockfile (MSVC {msvc_ver}, SDK {sdk_ver})",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    # Otherwise look up by ID or latest
+    installs = get_installed_versions()
+    if not installs:
+        typer.echo("Error: No installations found", err=True)
+        raise typer.Exit(1)
+
+    selected_id: str
+    if install_id:
+        selected_id = install_id
+    else:
+        # Pick the installation with the highest MSVC version (newest)
+        def version_key(item: tuple[str, dict]) -> tuple[int, ...]:
+            _, install_rec = item
+            ver = install_rec.get("msvc_toolset_version", "")
+            return tuple(int(p) for p in ver.split(".") if p.isdigit())
+
+        selected_id, _ = max(installs.items(), key=version_key)
+
+    rec: Optional[dict] = installs.get(selected_id)
+    if not rec:
+        typer.echo(f"Error: No installation with ID '{selected_id}'", err=True)
+        raise typer.Exit(1)
+
+    install_root = rec.get("path")
+    if not install_root:
+        typer.echo(f"Error: No install path recorded for ID '{selected_id}'", err=True)
+        raise typer.Exit(1)
+
+    # Output just the path for scripting
+    typer.echo(install_root)
+
+
+@app.command("get-activate")
+def get_activate(
+    install_id: Optional[str] = typer.Option(
+        None, "--id", help="Installation ID (omit for latest)"
+    ),
+    lockfile: Optional[str] = typer.Option(
+        None, "--lockfile", help="Path to portablemsvc.lock to find matching install"
+    ),
+    shell: str = typer.Option(
+        "auto", "--shell", help="Shell type (auto|cmd|powershell|ps|xonsh)"
+    ),
+) -> None:
+    """Output the activation command for the specified toolchain."""
+    import logging
+
+    from .install_status import get_installed_versions
+    from .lockfile import Lockfile
+
+    # Suppress filelock logging to keep stdout clean
+    logging.getLogger("filelock").setLevel(logging.WARNING)
+
+    def _resolve_install() -> tuple[str, dict]:
+        """Resolve to (install_id, install_rec) tuple."""
+        if lockfile:
+            lf = Lockfile.load(Path(lockfile))
+            lf_data = lf.to_dict()
+            resolved = lf_data.get("resolved", {})
+            msvc_ver = resolved.get("msvc", {}).get("package_version")
+            sdk_ver = resolved.get("sdk", {}).get("build_number")
+
+            installs = get_installed_versions()
+            for iid, rec in installs.items():
+                if (
+                    rec.get("msvc_package_version") == msvc_ver
+                    and rec.get("sdk_build_number") == sdk_ver
+                ):
+                    return iid, rec
+
+            typer.echo(
+                f"Error: No install found for lockfile (MSVC {msvc_ver}, SDK {sdk_ver})",
+                err=True,
+            )
+            raise typer.Exit(1)
 
         installs = get_installed_versions()
         if not installs:
-            self.fatal("No installations are recorded; nothing to register.")
+            typer.echo("Error: No installations found", err=True)
+            raise typer.Exit(1)
 
-        install_id = self.install_id
-        if not install_id:
-            # Pick the installation with the highest MSVC version (newest from MS)
-            def version_key(item):
-                _, rec = item
-                ver = rec.get("msvc_version", "")
-                # "14.44.17.14" → (14, 44, 17, 14)
-                return tuple(int(p) for p in ver.split(".") if p.isdigit())
-            install_id, _ = max(installs.items(), key=version_key)
+        if install_id:
+            candidate = installs.get(install_id)
+            if candidate is None:
+                typer.echo(f"Error: No installation with ID '{install_id}'", err=True)
+                raise typer.Exit(1)
+            return install_id, candidate
 
-        rec = installs.get(install_id)
-        if not rec:
-            self.fatal(f"No installation with ID '{install_id}'")
-        # the status DB records the root path under "path"
-        install_root = rec.get("path")
-        if not install_root:
-            self.fatal(f"No install path recorded for ID '{install_id}'")
-        register_toolchain(install_id, Path(install_root))
-        print(f"Registered toolchain {install_id} into HKCU\\Environment.")
+        # Pick the installation with the highest MSVC version (newest)
+        def version_key(item: tuple[str, dict]) -> tuple[int, ...]:
+            _, r = item
+            ver = r.get("msvc_toolset_version", "")
+            return tuple(int(p) for p in ver.split(".") if p.isdigit())
 
-@PortableMSVCApp.subcommand("deregister")
-class DeregisterEnv(Application):
-    install_id = SwitchAttr("--id", str, mandatory=False,
-                           help="ID of the installation to deregister (omit for current)")
-    def main(self):
-        from .registry_helpers import deregister_toolchain, _load_state, _LOCK_FILE, FileLock
+        sid, srec = max(installs.items(), key=version_key)
+        return sid, srec
 
-        iid = self.install_id
-        if not iid:
-            # pick up the “current” install_id from the same JSON state
-            lock = FileLock(str(_LOCK_FILE), timeout=60)
-            with lock:
-                state = _load_state()
-            iid = state.get("current")
-            if not iid:
-                self.fatal("No current registration found; please specify --id")
+    def _detect_shell() -> str:
+        """Auto-detect the current shell."""
+        # PowerShell detection
+        if os.getenv("PSVersionTable") or os.getenv("PSModulePath"):
+            return "powershell"
+        # Check parent process name
+        try:
+            import psutil
 
-        deregister_toolchain(iid)
-        print(f"Deregistered toolchain {iid} from HKCU\\Environment.")
+            parent = psutil.Process().parent()
+            if parent:
+                parent_name = parent.name().lower()
+                if "pwsh" in parent_name or "powershell" in parent_name:
+                    return "powershell"
+                if "xonsh" in parent_name:
+                    return "xonsh"
+        except (ImportError, Exception):
+            pass
+        # Default to cmd on Windows
+        return "cmd"
+
+    def _get_activate_command(install_root: Path, shell_type: str) -> str:
+        """Generate the activation command for the given shell."""
+        if shell_type in ("powershell", "ps"):
+            return f'& "{install_root}\\activate.ps1"'
+        elif shell_type == "xonsh":
+            # Just the path - xonsh uses: source $(cmd).strip()
+            return f"{install_root}\\activate.xsh"
+        else:  # cmd
+            return f'"{install_root}\\activate.cmd"'
+
+    # Resolve install
+    _, rec = _resolve_install()
+    install_root = rec.get("path")
+    if not install_root:
+        typer.echo("Error: No install path recorded", err=True)
+        raise typer.Exit(1)
+
+    # Determine shell
+    selected_shell = shell.lower()
+    if selected_shell == "auto":
+        selected_shell = _detect_shell()
+
+    # Output the activation command
+    cmd = _get_activate_command(Path(install_root), selected_shell)
+    typer.echo(cmd)
+
 
 if __name__ == "__main__":
-    PortableMSVCApp.run()
-
+    app()

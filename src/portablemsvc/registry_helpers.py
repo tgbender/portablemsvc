@@ -1,22 +1,32 @@
 from pathlib import Path
-from typing import Dict, Optional
-from winregenv import RegistryRoot, RegistryValueNotFoundError, RegistryKeyNotFoundError, RegistryError
-from winregenv import REG_SZ, REG_DWORD, REG_EXPAND_SZ, expand_environment_strings, broadcast_setting_change
+from typing import Dict, Optional, Any
+from winregenv import (
+    RegistryRoot,
+    RegistryValueNotFoundError,
+    RegistryKeyNotFoundError,
+    RegistryError,
+)
+from winregenv import (
+    REG_SZ,
+    REG_EXPAND_SZ,
+    expand_environment_strings,
+    broadcast_setting_change,
+)
 
 # new imports for JSON state + locking
 import json
 from filelock import FileLock
 from .config import CONFIG_DIR
+
 # for our backup routine
 import datetime
 import logging
 
 logger = logging.getLogger(__name__)
-from filelock import FileLock
-from .config import CONFIG_DIR
 
 # Initialize the registry root for HKEY_CURRENT_USER
 hkcu = RegistryRoot("HKCU")
+
 
 def _backup_path(var_name: str = "Path") -> None:
     """
@@ -34,6 +44,40 @@ def _backup_path(var_name: str = "Path") -> None:
     out_file.write_text(raw, encoding="utf-8")
     logger.info(f"Backed up {var_name} to {out_file}")
 
+
+def _backup_all_env_vars(install_id: str, spec: Dict[str, Any]) -> Path:
+    """
+    Backup all environment variables that will be modified by registration.
+    Stores a single JSON file with timestamp and install_id for easy recovery.
+
+    Returns the path to the backup file.
+    """
+    backup_dir = Path.home() / "path_backup"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Collect current values for all vars we're about to modify
+    backup_data: dict[str, Any] = {
+        "install_id": install_id,
+        "timestamp": ts,
+        "vars": {},
+    }
+
+    for var in spec.keys():
+        try:
+            raw = hkcu.get_registry_value("Environment", var).data
+            backup_data["vars"][var] = raw
+        except RegistryValueNotFoundError:
+            backup_data["vars"][var] = None  # Mark as not existing
+
+    out_file = backup_dir / f"portablemsvc_backup_{install_id}_{ts}.json"
+    out_file.write_text(json.dumps(backup_data, indent=2), encoding="utf-8")
+    logger.info(f"Backed up environment variables to {out_file}")
+    return out_file
+    logger.info(f"Backed up environment variables to {out_file}")
+    return out_file
+
+
 def get_env_var(name: str) -> Optional[str]:
     """Get an environment variable's value."""
     try:
@@ -41,12 +85,14 @@ def get_env_var(name: str) -> Optional[str]:
     except RegistryValueNotFoundError:
         return None
 
+
 def set_env_var(name: str, value: str) -> None:
     """Set an environment variable."""
     try:
         hkcu.put_registry_value("Environment", name, value, value_type=REG_SZ)
     except RegistryError as e:
         raise RuntimeError(f"Failed to set registry value: {e}")
+
 
 def get_path(var_name: str = "Path") -> str:
     """Get the current PATH value."""
@@ -56,6 +102,7 @@ def get_path(var_name: str = "Path") -> str:
     except RegistryValueNotFoundError:
         return ""
 
+
 def set_path(new_path: str, var_name: str = "Path") -> None:
     """Set a new PATH value."""
     try:
@@ -63,17 +110,19 @@ def set_path(new_path: str, var_name: str = "Path") -> None:
     except RegistryError as e:
         raise RuntimeError(f"Failed to set registry value: {e}")
 
+
 def append_to_path(value: str, var_name: str = "Path") -> None:
     """Append a new directory to PATH."""
     current_path = get_path(var_name)
     if not current_path:
         new_path = value
     else:
-        if value not in current_path.split(';'):
+        if value not in current_path.split(";"):
             new_path = f"{current_path};{value}"
         else:
             new_path = current_path
     set_path(new_path, var_name)
+
 
 def replace_in_path(find: str, replace: str) -> bool:
     """Replace text in PATH."""
@@ -84,6 +133,7 @@ def replace_in_path(find: str, replace: str) -> bool:
     set_path(new_path)
     return True
 
+
 def get_all_env_vars() -> Dict[str, str]:
     """Get all environment variables from HKCU."""
     try:
@@ -91,6 +141,7 @@ def get_all_env_vars() -> Dict[str, str]:
         return {v.name: v.data for v in values}
     except RegistryKeyNotFoundError:
         return {}
+
 
 def upsert_path_entry(new_dir: str, marker: str) -> None:
     """
@@ -103,11 +154,7 @@ def upsert_path_entry(new_dir: str, marker: str) -> None:
     expanded = [expand_environment_strings(e) for e in entries]
     # Find index where marker exists
     idx = next(
-        (
-            i
-            for i, e in enumerate(expanded)
-            if (Path(e) / marker).exists()
-        ),
+        (i for i, e in enumerate(expanded) if (Path(e) / marker).exists()),
         None,
     )
     if idx is not None:
@@ -117,19 +164,22 @@ def upsert_path_entry(new_dir: str, marker: str) -> None:
     # Write the updated PATH back to the registry
     set_path(";".join(entries))
 
+
 # ----------------------------------------------------------------------
 # JSON-backed registration state (so we know exactly what to remove later)
 # ----------------------------------------------------------------------
 _STATE_FILE = Path(CONFIG_DIR) / "registry_state.json"
-_LOCK_FILE  = _STATE_FILE.with_suffix(".lock")
+_LOCK_FILE = _STATE_FILE.with_suffix(".lock")
 _LOCK_TIMEOUT = 60  # seconds
 
-def _load_state() -> Dict[str, str]:
+
+def _load_state() -> Dict[str, Any]:
     if _STATE_FILE.exists():
         return json.loads(_STATE_FILE.read_text(encoding="utf-8"))
     return {"registered": {}}
 
-def _save_state(state: Dict[str, str]) -> None:
+
+def _save_state(state: Dict[str, Any]) -> None:
     # atomic write
     tmp = _STATE_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(state, indent=2), encoding="utf-8")
@@ -141,17 +191,22 @@ def register_toolchain(install_id: str, install_root: Path) -> None:
     Apply the install_root/env.json spec to HKCU\\Environment and
     record <install_id> → install_root in a locked JSON file.
     """
-    # 0) back up the user's existing PATH before we mutate it
-    _backup_path("Path")
-
     # 1) ensure config dir exists
     _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
 
     # load the env.json that was written at install time
     spec = json.loads((install_root / "env.json").read_text(encoding="utf-8"))
 
+    # 0) back up the user's existing env vars before we mutate them
+    _backup_path("Path")  # text backup, easy to copy
+    _backup_all_env_vars(install_id, spec)  # JSON backup, complete record
+
     # 1) apply each variable exactly as specced
+    # Skip metadata fields that shouldn't be environment variables
+    metadata_vars = {"TOOL_VERSIONS"}  # Not an env var, just debug info
     for var, entries in spec.items():
+        if var in metadata_vars:
+            continue
         if isinstance(entries, list):
             # merge new list entries into front of the existing PATH-style var
             try:
@@ -160,15 +215,13 @@ def register_toolchain(install_id: str, install_root: Path) -> None:
                 raw = ""
             parts = [p for p in raw.split(";") if p and p not in entries]
             new_val = ";".join(entries + parts)
-            hkcu.put_registry_value("Environment", var,
-                                    new_val,
-                                    value_type=REG_EXPAND_SZ)
+            hkcu.put_registry_value(
+                "Environment", var, new_val, value_type=REG_EXPAND_SZ
+            )
         else:
             # scalar var → overwrite entirely
             new_val = str(entries)
-            hkcu.put_registry_value("Environment", var,
-                                    new_val,
-                                    value_type=REG_SZ)
+            hkcu.put_registry_value("Environment", var, new_val, value_type=REG_SZ)
 
     # notify all processes once
     broadcast_setting_change("Environment")
@@ -177,13 +230,15 @@ def register_toolchain(install_id: str, install_root: Path) -> None:
     lock = FileLock(str(_LOCK_FILE), timeout=_LOCK_TIMEOUT)
     with lock:
         state = _load_state()
-        state.setdefault("registered", {})[install_id] = str(Path(install_root).resolve())
+        state.setdefault("registered", {})[install_id] = str(
+            Path(install_root).resolve()
+        )
         # mark this one as the “current” registration
         state["current"] = install_id
         _save_state(state)
 
 
-def deregister_toolchain(install_id: str) -> None:
+def unregister_toolchain(install_id: str) -> None:
     """
     Undo the env.json changes for a previously-registered install_id.
     Only the entries recorded in that install's env.json will be removed.
@@ -214,7 +269,9 @@ def deregister_toolchain(install_id: str) -> None:
         new_val = ";".join(parts)
         if parts:
             # update with remaining entries
-            hkcu.put_registry_value("Environment", var, new_val, value_type=REG_EXPAND_SZ)
+            hkcu.put_registry_value(
+                "Environment", var, new_val, value_type=REG_EXPAND_SZ
+            )
         else:
             # nothing left → delete the registry value entirely
             try:
@@ -223,3 +280,38 @@ def deregister_toolchain(install_id: str) -> None:
                 pass
 
     broadcast_setting_change("Environment")
+
+
+def check_long_paths_enabled() -> bool:
+    """Check if Windows long path support is enabled.
+
+    Long paths (>260 chars) require the LongPathsEnabled registry value
+    to be set to 1 in HKLM\\SYSTEM\\CurrentControlSet\\Control\\Filesystem.
+
+    This is important for msiexec which can fail silently when paths
+    exceed MAX_PATH (260 characters).
+
+    Returns True if enabled or if registry cannot be read (assume modern Windows).
+    """
+    try:
+        import winreg
+
+        with winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\FileSystem"
+        ) as key:
+            value, _ = winreg.QueryValueEx(key, "LongPathsEnabled")
+            return value == 1
+    except (OSError, ImportError):
+        # Assume enabled on modern Windows if we can't read
+        return True
+
+
+def warn_if_long_paths_disabled():
+    """Log a warning if long paths are not enabled."""
+    if not check_long_paths_enabled():
+        logger.warning(
+            "Windows long path support is not enabled. This may cause issues "
+            "with MSI extraction if paths exceed 260 characters. "
+            "Consider enabling LongPathsEnabled in registry: "
+            "HKLM\\SYSTEM\\CurrentControlSet\\Control\\FileSystem\\LongPathsEnabled=1"
+        )

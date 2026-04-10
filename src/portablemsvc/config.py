@@ -1,27 +1,66 @@
-#CONFIG.py setup.
-from platformdirs import user_config_dir,user_data_dir,user_cache_dir,user_runtime_dir
+# CONFIG.py setup.
+import os
+from pathlib import Path
+from typing import NewType
 
-CONFIG_DIR = user_config_dir('msvc','portable',ensure_exists=True) #store installer settings here
-DATA_DIR = user_data_dir('msvc','portable',ensure_exists=True) #store the msvc compiler here
-CACHE_DIR = user_cache_dir('msvc','portable',ensure_exists=True) #cache things here
-TEMP_DIR = user_runtime_dir('msvc','portable',ensure_exists=True) #put temp things here
+from platformdirs import (
+    user_config_dir,
+    user_data_dir,
+    user_cache_dir,
+    user_runtime_dir,
+)
+
+# Directory configuration with environment variable overrides
+# Fall back to platformdirs if env vars are not set
+CONFIG_DIR = Path(
+    os.environ.get("PORTABLEMSVC_CONFIG")
+    or user_config_dir("msvc", "portable", ensure_exists=True)
+)  # store installer settings here
+DATA_DIR = Path(
+    os.environ.get("PORTABLEMSVC_DATA")
+    or user_data_dir("msvc", "portable", ensure_exists=True)
+)  # store the msvc compiler here
+CACHE_DIR = Path(
+    os.environ.get("PORTABLEMSVC_CACHE")
+    or user_cache_dir("msvc", "portable", ensure_exists=True)
+)  # cache things here
+TEMP_DIR = Path(
+    os.environ.get("PORTABLEMSVC_TEMP")
+    or user_runtime_dir("msvc", "portable", ensure_exists=True)
+)  # put temp things here
 
 DEFAULT_HOST = "x64"
-ALL_HOSTS    = "x64 x86 arm64".split()
+ALL_HOSTS = "x64 x86 arm64".split()
 
 DEFAULT_TARGET = "x64"
-ALL_TARGETS    = "x64 x86 arm arm64".split()
+ALL_TARGETS = "x64 x86 arm arm64".split()
 
 MANIFEST_URL = "https://aka.ms/vs/17/release/channel"
 MANIFEST_PREVIEW_URL = "https://aka.ms/vs/17/pre/channel"
 RELEASE_CHANNEL_MANIFEST_NAME = "Microsoft.VisualStudio.Manifests.VisualStudio"
 PREVIEW_CHANNEL_MANIFEST_NAME = "Microsoft.VisualStudio.Manifests.VisualStudio"
 
-MANIFEST_CACHE_TTL=3600
-MANIFEST_REQUEST_TIMEOUT=30
+MANIFEST_CACHE_TTL = 3600
+MANIFEST_REQUEST_TIMEOUT = 30
 
 # Package ID patterns
 MSVC_PACKAGE_PREFIX = "microsoft.vc."
 MSVC_HOST_TARGET_SUFFIX = ".tools.hostx64.targetx64.base"
 WIN10_SDK_PREFIX = "microsoft.visualstudio.component.windows10sdk."
 WIN11_SDK_PREFIX = "microsoft.visualstudio.component.windows11sdk."
+
+
+def first(items, cond=lambda x: True):
+    """Find the first item that matches the condition."""
+    return next((item for item in items if cond(item)), None)
+
+
+# MSVC: Toolset version is what users specify (e.g., "14.44")
+# Package version is the full build (e.g., "14.44.17.14") that appears in folders
+MsvcToolsetVersion = NewType("MsvcToolsetVersion", str)
+MsvcPackageVersion = NewType("MsvcPackageVersion", str)
+
+# Windows SDK: Build number is the integer ID (e.g., "26100")
+# Version is the full 4-part string (e.g., "10.0.26100.0")
+SdkBuildNumber = NewType("SdkBuildNumber", str)
+SdkVersion = NewType("SdkVersion", str)
