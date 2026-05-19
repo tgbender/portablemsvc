@@ -75,19 +75,22 @@ def lockfile_install_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
 # ============================================================================
 
 
+def _msvc_toolset_version_key(item: tuple[str, dict[str, Any]]) -> tuple[int, ...]:
+    _, rec = item
+    ver = rec.get("msvc_toolset_version", "")
+    return tuple(int(part) for part in ver.split(".") if part.isdigit())
+
+
 @pytest.fixture(scope="session")
 def system_install():
-    """Existing system install (latest). Default for most tests."""
+    """Existing system install selected the same way as get-path/register defaults."""
     from portablemsvc.install_status import get_installed_versions
 
     installs = get_installed_versions()
     if not installs:
         pytest.skip("No system MSVC install found. Run 'portablemsvc install' first.")
 
-    latest_id, latest_info = max(
-        installs.items(),
-        key=lambda x: x[1].get("installed_at", ""),
-    )
+    latest_id, latest_info = max(installs.items(), key=_msvc_toolset_version_key)
 
     return {
         "install_id": latest_id,

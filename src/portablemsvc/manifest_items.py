@@ -88,6 +88,7 @@ def resolve_redist_packages(packages, msvc_packages, msvc_full_ver, targets):
             continue
 
         # Special handling for redist packages
+        resolved_redist = None
         if "crt.redist" in pkg_lower:
             for target in targets:
                 redist_suffix = ".onecore.desktop" if target == "arm" else ""
@@ -101,8 +102,12 @@ def resolve_redist_packages(packages, msvc_packages, msvc_full_ver, targets):
                                 lambda dep: dep.endswith(".base"),
                             )
                             if dep:
-                                resolved_packages.append(dep)
-                                continue
+                                resolved_redist = dep
+                                break
+
+        if resolved_redist:
+            resolved_packages.append(resolved_redist)
+            continue
 
         # If we get here, we couldn't resolve the package
         logger.warning(f"Package {pkg} not found in manifest")
