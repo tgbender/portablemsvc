@@ -9,7 +9,7 @@ from .parse_manifest import parse_vs_manifest
 from .download_manifest import download_manifest_files
 from .parse_msi import parse_msi_for_cabs
 from .download import download_files
-from .extract import extract_package_files
+from .extract import MsiExtractor, extract_package_files
 from .install import install_msvc_components
 from .install_status import (
     is_version_installed,
@@ -54,6 +54,7 @@ def install_msvc(
     output_dir: Optional[Path] = None,
     lockfile_path: Optional[Path] = None,
     accept_license: bool = False,
+    msi_extractor: Optional[MsiExtractor] = None,
 ) -> Dict[str, Any]:
     """
     Full portable-MSVC installation:
@@ -157,6 +158,7 @@ def install_msvc(
         all_files,
         output_dir,
         lockfile=lockfile,
+        msi_extractor=msi_extractor,
     )
 
     # 6) post-extract install steps
@@ -209,6 +211,7 @@ def install_from_lockfile(
     lockfile_path: Path,
     output_dir: Optional[Path] = None,
     accept_license: bool = False,
+    msi_extractor: Optional[MsiExtractor] = None,
 ) -> Dict[str, Any]:
     """
     Install MSVC from an existing lockfile for reproducible builds.
@@ -269,7 +272,11 @@ def install_from_lockfile(
 
     # Extract using the same function as the normal flow
     logger.info(f"Extracting all packages to: {output_dir}")
-    extracted = extract_package_files(files_map, output_dir)
+    extracted = extract_package_files(
+        files_map,
+        output_dir,
+        msi_extractor=msi_extractor,
+    )
 
     # Post-extract install (debug CRT, msdia140, cleanup, batch files, tool versions)
     install_result = install_msvc_components(

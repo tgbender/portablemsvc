@@ -85,12 +85,13 @@ By default, installs the latest x64 MSVC + SDK under:
 
 **Environment Variable Overrides:**
 
-| Variable              | Purpose                           |
-| --------------------- | --------------------------------- |
-| `PORTABLEMSVC_CACHE`  | Override download cache directory |
-| `PORTABLEMSVC_DATA`   | Override install directory        |
-| `PORTABLEMSVC_CONFIG` | Override config directory         |
-| `PORTABLEMSVC_TEMP`   | Override temp directory           |
+| Variable                     | Purpose                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------ |
+| `PORTABLEMSVC_CACHE`         | Override download cache directory                                        |
+| `PORTABLEMSVC_DATA`          | Override install directory                                               |
+| `PORTABLEMSVC_CONFIG`        | Override config directory                                                |
+| `PORTABLEMSVC_TEMP`          | Override temp directory                                                  |
+| `PORTABLEMSVC_MSI_EXTRACTOR` | Select MSI extractor: `auto`/`pymsi` (default), `msiexec`, or `fallback` |
 
 **Example:**
 

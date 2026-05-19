@@ -1,19 +1,20 @@
-import shutil
-import zipfile
-import tempfile
+from __future__ import annotations
+
 import logging
-
-from .parse_msi import extract_cab_names as _get_msi_cab_files
-
-from pathlib import Path
-from typing import Dict, List, Set, Generator, Optional
+import os
+import shutil
+import tempfile
+import zipfile
 from contextlib import contextmanager
+from pathlib import Path
+from typing import Callable, Dict, Generator, List, Optional, Protocol, Set
 
 from plumbum import local
 from plumbum.commands import ProcessExecutionError
 
 from .config import TEMP_DIR
 from .lockfile import Lockfile
+from .parse_msi import extract_cab_names as _get_msi_cab_files
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,191 @@ class MsiExtractionError(Exception):
     """Raised when MSI extraction fails or produces no output."""
 
     pass
+
+
+class MsiExtractor(Protocol):
+    """Extracts one MSI into a destination directory."""
+
+    def extract(self, msi_path: Path, destination: Path) -> Set[Path]:
+        """Return paths created while extracting an MSI."""
+        ...
+
+
+SYSTEM_FOLDER_PROPERTIES = {
+    "AdminToolsFolder",
+    "AppDataFolder",
+    "CommonAppDataFolder",
+    "CommonFiles64Folder",
+    "CommonFilesFolder",
+    "DesktopFolder",
+    "FavoritesFolder",
+    "FontsFolder",
+    "LocalAppDataFolder",
+    "MyPicturesFolder",
+    "NetHoodFolder",
+    "PersonalFolder",
+    "PrintHoodFolder",
+    "ProgramFiles64Folder",
+    "ProgramFilesFolder",
+    "ProgramMenuFolder",
+    "RecentFolder",
+    "SendToFolder",
+    "StartMenuFolder",
+    "System16Folder",
+    "System64Folder",
+    "SystemFolder",
+    "TempFolder",
+    "TemplateFolder",
+    "WindowsFolder",
+}
+
+
+def _msi_long_name(name: str) -> str:
+    """Return the long filename from an MSI short|long name field."""
+    return name.split("|", 1)[1] if "|" in name else name
+
+
+def _created_paths_around_extraction(
+    extractor_name: str,
+    msi_path: Path,
+    destination: Path,
+    extract: Callable[[], None],
+) -> Set[Path]:
+    files_before = set(destination.rglob("*")) if destination.exists() else set()
+    extract()
+    files_after = set(destination.rglob("*")) if destination.exists() else set()
+    new_files = files_after - files_before
+
+    if not new_files:
+        raise MsiExtractionError(
+            f"{extractor_name} extraction produced no files: {msi_path.name} "
+            f"(target path length: {len(str(destination.resolve()))} chars)."
+        )
+
+    logger.info(
+        f"{extractor_name} extraction successful: "
+        f"{len(new_files)} new files from {msi_path.name}"
+    )
+    return new_files
+
+
+class PyMsiExtractor:
+    """Pure-Python MSI extractor backed by python-msi/pymsi."""
+
+    def extract(self, msi_path: Path, destination: Path) -> Set[Path]:
+        logger.info(f"Extracting MSI with pymsi: {msi_path} → {destination}")
+        destination.mkdir(parents=True, exist_ok=True)
+
+        try:
+            from pymsi.msi import Msi
+            from pymsi.package import Package
+        except ImportError as exc:
+            raise MsiExtractionError("python-msi is not installed") from exc
+
+        def run_pymsi() -> None:
+            shutil.copy2(msi_path, destination / msi_path.name)
+            with Package(msi_path) as package:
+                msi = Msi(package, load_data=True, strict=False)
+                self._extract_root(msi.root, destination)
+
+        try:
+            return _created_paths_around_extraction(
+                "pymsi", msi_path, destination, run_pymsi
+            )
+        except MsiExtractionError:
+            raise
+        except Exception as exc:
+            raise MsiExtractionError(
+                f"pymsi extraction failed for {msi_path.name}: {exc}"
+            ) from exc
+
+    def _extract_root(self, root, output: Path, is_root: bool = True) -> None:
+        output.mkdir(parents=True, exist_ok=True)
+
+        for component in root.components.values():
+            for file in component.files.values():
+                if getattr(file, "media", None) is None:
+                    continue
+                cab_file = file.resolve()
+                out_path = output / _msi_long_name(file.name)
+                out_path.parent.mkdir(parents=True, exist_ok=True)
+                out_path.write_bytes(cab_file.decompress())
+
+        for child in root.children.values():
+            folder_name = _msi_long_name(child.name)
+            if is_root:
+                if "." in child.id:
+                    folder_name = child.id.split(".", 1)[0]
+                elif child.id in SYSTEM_FOLDER_PROPERTIES:
+                    folder_name = "."
+            self._extract_root(child, output / folder_name, False)
+
+
+class MsiexecMsiExtractor:
+    """MSI extractor backed by the legacy msiexec /a extraction hack."""
+
+    def extract(self, msi_path: Path, destination: Path) -> Set[Path]:
+        logger.info(f"Extracting MSI with msiexec: {msi_path} → {destination}")
+
+        target_dir = str(destination.resolve())
+        if len(target_dir) > 200:
+            logger.warning(
+                f"Target path is {len(target_dir)} chars, likely to hit 260 char "
+                f"limit for nested files: {target_dir}"
+            )
+
+        msiexec = local["msiexec.exe"]
+
+        try:
+            return _created_paths_around_extraction(
+                "msiexec",
+                msi_path,
+                destination,
+                lambda: msiexec[
+                    "/a", str(msi_path), "/quiet", "/qn", f"TARGETDIR={target_dir}"
+                ](),
+            )
+        except ProcessExecutionError as e:
+            raise MsiExtractionError(
+                f"MSI extraction failed for {msi_path.name}: "
+                f"msiexec exited with code {e.retcode}. "
+                f"Target path is {len(target_dir)} chars. "
+                f"This often indicates the path exceeded Windows' 260 char limit."
+            ) from e
+
+
+class FallbackMsiExtractor:
+    """Try a primary extractor and fall back if it cannot extract the MSI."""
+
+    def __init__(self, primary: MsiExtractor, fallback: MsiExtractor) -> None:
+        self.primary = primary
+        self.fallback = fallback
+
+    def extract(self, msi_path: Path, destination: Path) -> Set[Path]:
+        try:
+            return self.primary.extract(msi_path, destination)
+        except MsiExtractionError as exc:
+            logger.warning(
+                f"Primary MSI extractor failed for {msi_path.name}; "
+                f"falling back to msiexec: {exc}"
+            )
+            return self.fallback.extract(msi_path, destination)
+
+
+def default_msi_extractor() -> MsiExtractor:
+    """Return the production MSI extractor stack."""
+    requested = os.environ.get("PORTABLEMSVC_MSI_EXTRACTOR", "").strip().lower()
+    if requested in {"", "auto", "pymsi"}:
+        return PyMsiExtractor()
+    if requested == "msiexec":
+        return MsiexecMsiExtractor()
+    if requested == "fallback":
+        return FallbackMsiExtractor(PyMsiExtractor(), MsiexecMsiExtractor())
+    if requested and requested not in {"auto", "fallback"}:
+        logger.warning(
+            f"Unknown PORTABLEMSVC_MSI_EXTRACTOR={requested!r}; using pymsi"
+        )
+    return PyMsiExtractor()
 
 
 @contextmanager
@@ -60,43 +246,15 @@ def _extract_zip_file(
 
 
 def _extract_msi_file(msi_path: Path, destination: Path) -> Set[Path]:
-    """Extract an MSI file. Returns the set of newly created paths. Raises on failure."""
-    logger.info(f"Extracting MSI: {msi_path} → {destination}")
+    """
+    Extract an MSI file with the original msiexec /a path.
 
-    files_before = set(destination.rglob("*")) if destination.exists() else set()
-
-    target_dir = str(destination.resolve())
-    if len(target_dir) > 200:
-        logger.warning(
-            f"Target path is {len(target_dir)} chars, likely to hit 260 char limit "
-            f"for nested files: {target_dir}"
-        )
-
-    msiexec = local["msiexec.exe"]
-    try:
-        msiexec["/a", str(msi_path), "/quiet", "/qn", f"TARGETDIR={target_dir}"]()
-    except ProcessExecutionError as e:
-        raise MsiExtractionError(
-            f"MSI extraction failed for {msi_path.name}: "
-            f"msiexec exited with code {e.retcode}. "
-            f"Target path is {len(target_dir)} chars. "
-            f"This often indicates the path exceeded Windows' 260 char limit."
-        ) from e
-
-    files_after = set(destination.rglob("*")) if destination.exists() else set()
-    new_files = files_after - files_before
-
-    if not new_files:
-        raise MsiExtractionError(
-            f"MSI extraction produced no files: {msi_path.name} "
-            f"(target path length: {len(target_dir)} chars). "
-            f"This often indicates the path exceeded Windows' 260 char limit."
-        )
-
-    logger.info(
-        f"MSI extraction successful: {len(new_files)} new files from {msi_path.name}"
-    )
-    return new_files
+    This is intentionally kept as a direct legacy helper so callers can still
+    exercise the old behavior explicitly. The package flow uses
+    default_msi_extractor(), which tries pymsi first and falls back to this
+    implementation.
+    """
+    return MsiexecMsiExtractor().extract(msi_path, destination)
 
 
 def extract_package_files(
@@ -105,6 +263,7 @@ def extract_package_files(
     extract_msvc: bool = True,
     extract_sdk: bool = True,
     lockfile: Optional[Lockfile] = None,
+    msi_extractor: Optional[MsiExtractor] = None,
 ) -> Dict[str, Set[Path]]:
     """
     Extract package files from their cached locations to the output directory.
@@ -115,6 +274,7 @@ def extract_package_files(
 
     temp_output_dir = output_dir.with_name(f"{output_dir.name}_{uuid.uuid4().hex[:8]}")
     temp_output_dir.mkdir(parents=True, exist_ok=True)
+    msi_extractor = msi_extractor or default_msi_extractor()
 
     results: Dict[str, Set[Path]] = {"msvc": set(), "sdk": set()}
 
@@ -158,11 +318,11 @@ def extract_package_files(
                     output_msi = temp_output_dir / msi.name
                     msi_name = msi.name
 
-                    new_files = _extract_msi_file(msi, temp_output_dir)
+                    new_files = msi_extractor.extract(msi, temp_output_dir)
                     results["sdk"].add(output_msi)
 
                     if lockfile is not None:
-                        for ef in new_files:
+                        for ef in sorted(new_files):
                             if ef.is_file():
                                 rel_path = ef.relative_to(temp_output_dir)
                                 lockfile.add_file_extraction(msi_name, rel_path)
