@@ -110,6 +110,10 @@ portablemsvc install
 By default, installs the latest x64 MSVC + SDK under:
 `%LOCALAPPDATA%\portable\msvc\msvc-<full_version>_sdk-<build>`
 
+If `--output` points at an existing directory, PortableMSVC will only replace it
+when it is empty or already looks like a PortableMSVC install. It refuses to
+replace arbitrary non-empty directories.
+
 **Environment Variable Overrides:**
 
 | Variable                     | Purpose                                                                  |
@@ -254,6 +258,9 @@ portablemsvc install --accept-license --output .\msvc
 # In CI, install from the lockfile for bit-for-bit reproducibility
 portablemsvc install-from-lockfile portablemsvc.lock --accept-license
 ```
+
+Lockfiles are executable supply-chain input: they contain exact package URLs and
+hashes. Only use lockfiles from repositories and commits you trust.
 
 **GitHub Actions Example:**
 

@@ -145,6 +145,7 @@ def _parse_channel_manifest(
 def _download_vs_manifest(
     vs_manifest_url: str,
     *,
+    expected_hash: str = "",
     cache: bool = True,
     cache_dir: Path = CACHE_DIR,
     cache_ttl: int = MANIFEST_CACHE_TTL,
@@ -171,7 +172,15 @@ def _download_vs_manifest(
         with open(cache_meta_path) as f:
             cache_meta = json.load(f)
 
-        if time.time() - cache_meta["timestamp"] < cache_ttl:
+        cached_channel_hash = cache_meta.get("channel_sha256", "").lower()
+        expected = expected_hash.lower()
+        if (
+            expected
+            and cached_channel_hash
+            and cached_channel_hash != expected
+        ):
+            logger.warning("Cached VS manifest belongs to a different channel hash")
+        elif time.time() - cache_meta["timestamp"] < cache_ttl:
             logger.debug(f"Using cached VS manifest from {cache_path}")
             with open(cache_path) as f:
                 return json.load(f), vs_manifest_url, cache_meta.get("hash", "")
@@ -186,6 +195,11 @@ def _download_vs_manifest(
 
         vs_manifest_json = json.loads(manifest_response.text)
         manifest_hash = hashlib.sha256(manifest_response.content).hexdigest()
+        if expected_hash and manifest_hash.lower() != expected_hash.lower():
+            logger.warning(
+                "VS manifest hash mismatch. "
+                f"Expected {expected_hash.lower()}, got {manifest_hash.lower()}"
+            )
 
         # Write the manifest to cache with metadata
         if cache:
@@ -198,6 +212,7 @@ def _download_vs_manifest(
                         {
                             "timestamp": time.time(),
                             "hash": manifest_hash,
+                            "channel_sha256": expected_hash,
                             "url": vs_manifest_url,
                         },
                         f,
@@ -220,6 +235,15 @@ def _download_vs_manifest(
             try:
                 with open(cache_meta_path) as meta_f:
                     cache_meta = json.load(meta_f)
+                    cached_channel_hash = cache_meta.get("channel_sha256", "").lower()
+                    if (
+                        expected_hash
+                        and cached_channel_hash
+                        and cached_channel_hash != expected_hash.lower()
+                    ):
+                        raise OSError(
+                            "Cached VS manifest belongs to a different channel hash"
+                        ) from e
                     return manifest, vs_manifest_url, cache_meta.get("hash", "")
             except (FileNotFoundError, json.JSONDecodeError):
                 return manifest, vs_manifest_url, ""
@@ -280,7 +304,11 @@ def get_vs_manifest(
 
     # Step 3: Download the VS manifest
     vs_manifest, final_url, final_hash = _download_vs_manifest(
-        vs_manifest_url, cache=cache, cache_dir=cache_dir, cache_ttl=cache_ttl
+        vs_manifest_url,
+        expected_hash=vs_manifest_hash,
+        cache=cache,
+        cache_dir=cache_dir,
+        cache_ttl=cache_ttl,
     )
 
     return vs_manifest, {

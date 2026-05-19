@@ -1,5 +1,6 @@
 import json
 import shutil
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,9 @@ from portablemsvc.extract import (
     MsiexecMsiExtractor,
     PyMsiExtractor,
     _extract_msi_file,
+    _extract_zip_file,
+    _safe_destination_path,
+    _validate_replaceable_output_dir,
     extract_package_files,
 )
 from portablemsvc.parse_msi import get_msi_cab_files
@@ -115,3 +119,41 @@ def test_extract_msi_file_preserves_msiexec_path(
     _extract_msi_file(msi_path, output_dir)
 
     _assert_real_sdk_extract(output_dir)
+
+
+def test_safe_destination_path_rejects_escape(tmp_path: Path):
+    destination = tmp_path / "out"
+    destination.mkdir()
+
+    with pytest.raises(ValueError, match="escapes destination"):
+        _safe_destination_path(destination, Path("..") / "evil.txt")
+
+
+def test_zip_extraction_rejects_path_traversal(tmp_path: Path):
+    archive = tmp_path / "bad.zip"
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr("Contents/../evil.txt", "bad")
+
+    with pytest.raises(ValueError, match="escapes destination"):
+        _extract_zip_file(archive, tmp_path / "out")
+
+    assert not (tmp_path / "evil.txt").exists()
+
+
+def test_output_replacement_rejects_arbitrary_non_empty_directory(tmp_path: Path):
+    output = tmp_path / "existing"
+    output.mkdir()
+    (output / "important.txt").write_text("do not delete", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Refusing to replace non-empty directory"):
+        _validate_replaceable_output_dir(output)
+
+    assert (output / "important.txt").exists()
+
+
+def test_output_replacement_allows_existing_portablemsvc_install(tmp_path: Path):
+    output = tmp_path / "existing"
+    output.mkdir()
+    (output / "portablemsvc.lock").write_text("{}", encoding="utf-8")
+
+    _validate_replaceable_output_dir(output)

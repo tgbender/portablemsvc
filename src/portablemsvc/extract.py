@@ -13,7 +13,7 @@ from typing import Protocol
 from plumbum import local
 from plumbum.commands import ProcessExecutionError
 
-from .config import TEMP_DIR
+from .config import CACHE_DIR, CONFIG_DIR, DATA_DIR, TEMP_DIR
 from .lockfile import Lockfile
 from .parse_msi import extract_cab_names as _get_msi_cab_files
 
@@ -61,6 +61,47 @@ SYSTEM_FOLDER_PROPERTIES = {
     "TemplateFolder",
     "WindowsFolder",
 }
+
+
+def _safe_destination_path(destination: Path, relative_path: Path | str) -> Path:
+    """Return a destination child path, rejecting archive paths that escape it."""
+    destination_root = destination.resolve()
+    target = (destination / relative_path).resolve()
+    if target != destination_root and destination_root not in target.parents:
+        raise ValueError(f"Archive path escapes destination: {relative_path}")
+    return target
+
+
+def _looks_like_portablemsvc_output(path: Path) -> bool:
+    markers = ("portablemsvc.lock", "env.json", "VC", "Windows Kits")
+    return any((path / marker).exists() for marker in markers)
+
+
+def _validate_replaceable_output_dir(output_dir: Path) -> None:
+    resolved = output_dir.resolve()
+
+    if resolved == Path(resolved.anchor):
+        raise ValueError(f"Refusing to replace drive root: {output_dir}")
+
+    protected_dirs = {
+        Path.cwd().resolve(),
+        Path.home().resolve(),
+        Path(TEMP_DIR).resolve(),
+        Path(CACHE_DIR).resolve(),
+        Path(CONFIG_DIR).resolve(),
+        Path(DATA_DIR).resolve(),
+    }
+    if resolved in protected_dirs:
+        raise ValueError(f"Refusing to replace protected directory: {output_dir}")
+
+    if not output_dir.is_dir():
+        raise ValueError(f"Refusing to replace non-directory output path: {output_dir}")
+
+    if any(output_dir.iterdir()) and not _looks_like_portablemsvc_output(output_dir):
+        raise ValueError(
+            "Refusing to replace non-empty directory that does not look like a "
+            f"PortableMSVC install: {output_dir}"
+        )
 
 
 def _msi_long_name(name: str) -> str:
@@ -130,7 +171,7 @@ class PyMsiExtractor:
                 if getattr(file, "media", None) is None:
                     continue
                 cab_file = file.resolve()
-                out_path = output / _msi_long_name(file.name)
+                out_path = _safe_destination_path(output, _msi_long_name(file.name))
                 out_path.parent.mkdir(parents=True, exist_ok=True)
                 out_path.write_bytes(cab_file.decompress())
 
@@ -141,7 +182,9 @@ class PyMsiExtractor:
                     folder_name = child.id.split(".", 1)[0]
                 elif child.id in SYSTEM_FOLDER_PROPERTIES:
                     folder_name = "."
-            self._extract_root(child, output / folder_name, False)
+            self._extract_root(
+                child, _safe_destination_path(output, folder_name), False
+            )
 
 
 class MsiexecMsiExtractor:
@@ -236,10 +279,12 @@ def _extract_zip_file(
     extracted = []
     with zipfile.ZipFile(zip_path, "r") as zf:
         for name in zf.namelist():
+            if name.endswith("/"):
+                continue
             if base_path and not name.startswith(base_path):
                 continue
             rel = Path(name).relative_to(base_path) if base_path else Path(name)
-            out_path = destination / rel
+            out_path = _safe_destination_path(destination, rel)
             out_path.parent.mkdir(parents=True, exist_ok=True)
             out_path.write_bytes(zf.read(name))
             extracted.append(out_path)
@@ -335,6 +380,7 @@ def extract_package_files(
 
         # If the output directory already exists, remove it
         if output_dir.exists():
+            _validate_replaceable_output_dir(output_dir)
             logger.info(f"Removing existing output directory: {output_dir}")
             shutil.rmtree(output_dir)
 
