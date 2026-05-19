@@ -1,26 +1,26 @@
-from pathlib import Path
-from typing import Dict, Optional, Any
-from winregenv import (
-    RegistryRoot,
-    RegistryValueNotFoundError,
-    RegistryKeyNotFoundError,
-    RegistryError,
-)
-from winregenv import (
-    REG_SZ,
-    REG_EXPAND_SZ,
-    expand_environment_strings,
-    broadcast_setting_change,
-)
+# for our backup routine
+import datetime
 
 # new imports for JSON state + locking
 import json
-from filelock import FileLock
-from .config import CONFIG_DIR
-
-# for our backup routine
-import datetime
 import logging
+from contextlib import suppress
+from pathlib import Path
+from typing import Any
+
+from filelock import FileLock
+from winregenv import (
+    REG_EXPAND_SZ,
+    REG_SZ,
+    RegistryError,
+    RegistryKeyNotFoundError,
+    RegistryRoot,
+    RegistryValueNotFoundError,
+    broadcast_setting_change,
+    expand_environment_strings,
+)
+
+from .config import CONFIG_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ def _backup_path(var_name: str = "Path") -> None:
     logger.info(f"Backed up {var_name} to {out_file}")
 
 
-def _backup_all_env_vars(install_id: str, spec: Dict[str, Any]) -> Path:
+def _backup_all_env_vars(install_id: str, spec: dict[str, Any]) -> Path:
     """
     Backup all environment variables that will be modified by registration.
     Stores a single JSON file with timestamp and install_id for easy recovery.
@@ -63,7 +63,7 @@ def _backup_all_env_vars(install_id: str, spec: Dict[str, Any]) -> Path:
         "vars": {},
     }
 
-    for var in spec.keys():
+    for var in spec:
         try:
             raw = hkcu.get_registry_value("Environment", var).data
             backup_data["vars"][var] = raw
@@ -78,7 +78,7 @@ def _backup_all_env_vars(install_id: str, spec: Dict[str, Any]) -> Path:
     return out_file
 
 
-def get_env_var(name: str) -> Optional[str]:
+def get_env_var(name: str) -> str | None:
     """Get an environment variable's value."""
     try:
         return hkcu.get_registry_value("Environment", name).data
@@ -91,7 +91,7 @@ def set_env_var(name: str, value: str) -> None:
     try:
         hkcu.put_registry_value("Environment", name, value, value_type=REG_SZ)
     except RegistryError as e:
-        raise RuntimeError(f"Failed to set registry value: {e}")
+        raise RuntimeError(f"Failed to set registry value: {e}") from e
 
 
 def get_path(var_name: str = "Path") -> str:
@@ -108,7 +108,7 @@ def set_path(new_path: str, var_name: str = "Path") -> None:
     try:
         hkcu.put_registry_value("Environment", var_name, new_path, value_type=REG_SZ)
     except RegistryError as e:
-        raise RuntimeError(f"Failed to set registry value: {e}")
+        raise RuntimeError(f"Failed to set registry value: {e}") from e
 
 
 def append_to_path(value: str, var_name: str = "Path") -> None:
@@ -134,7 +134,7 @@ def replace_in_path(find: str, replace: str) -> bool:
     return True
 
 
-def get_all_env_vars() -> Dict[str, str]:
+def get_all_env_vars() -> dict[str, str]:
     """Get all environment variables from HKCU."""
     try:
         values = hkcu.list_registry_values("Environment")
@@ -173,13 +173,13 @@ _LOCK_FILE = _STATE_FILE.with_suffix(".lock")
 _LOCK_TIMEOUT = 60  # seconds
 
 
-def _load_state() -> Dict[str, Any]:
+def _load_state() -> dict[str, Any]:
     if _STATE_FILE.exists():
         return json.loads(_STATE_FILE.read_text(encoding="utf-8"))
     return {"registered": {}}
 
 
-def _save_state(state: Dict[str, Any]) -> None:
+def _save_state(state: dict[str, Any]) -> None:
     # atomic write
     tmp = _STATE_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(state, indent=2), encoding="utf-8")
@@ -274,10 +274,8 @@ def unregister_toolchain(install_id: str) -> None:
             )
         else:
             # nothing left → delete the registry value entirely
-            try:
+            with suppress(RegistryValueNotFoundError, RegistryError):
                 hkcu.delete_registry_value("Environment", var)
-            except (RegistryValueNotFoundError, RegistryError):
-                pass
 
     broadcast_setting_change("Environment")
 

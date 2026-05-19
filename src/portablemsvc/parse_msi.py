@@ -1,14 +1,13 @@
 import logging
-
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 from .lockfile import Lockfile
 
 logger = logging.getLogger(__name__)
 
 
-def extract_cab_names(data: bytes) -> List[str]:
+def extract_cab_names(data: bytes) -> list[str]:
     """Return embedded .cab filenames found in MSI binary data using original script approach."""
     names = []
     index = 0
@@ -24,23 +23,23 @@ def extract_cab_names(data: bytes) -> List[str]:
     return names
 
 
-def get_msi_cab_files(path: Path) -> List[str]:
+def get_msi_cab_files(path: Path) -> list[str]:
     """Read an MSI file and return embedded .cab filenames."""
     return extract_cab_names(path.read_bytes())
 
 
 def parse_msi_for_cabs(
-    files_map: Dict[str, Path],
-    sdk_pkg_info: Dict[str, Any],
-    lockfile: Optional[Lockfile] = None,
-) -> Dict[str, Dict[str, str]]:
+    files_map: dict[str, Path],
+    sdk_pkg_info: dict[str, Any],
+    lockfile: Lockfile | None = None,
+) -> dict[str, dict[str, str]]:
     """
     Scan downloaded .msi files for embedded .cab names,
     map each to its URL/hash via sdk_pkg_info['payloads'].
 
     If lockfile is provided, CAB entries are added with parent MSI reference.
     """
-    cab_payloads: Dict[str, Dict[str, str]] = {}
+    cab_payloads: dict[str, dict[str, str]] = {}
     payloads = sdk_pkg_info.get("payloads", [])
 
     # Create lookup of payloads by filename (case-insensitive)

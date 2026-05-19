@@ -5,9 +5,10 @@ import os
 import shutil
 import tempfile
 import zipfile
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, Dict, Generator, List, Optional, Protocol, Set
+from typing import Protocol
 
 from plumbum import local
 from plumbum.commands import ProcessExecutionError
@@ -28,7 +29,7 @@ class MsiExtractionError(Exception):
 class MsiExtractor(Protocol):
     """Extracts one MSI into a destination directory."""
 
-    def extract(self, msi_path: Path, destination: Path) -> Set[Path]:
+    def extract(self, msi_path: Path, destination: Path) -> set[Path]:
         """Return paths created while extracting an MSI."""
         ...
 
@@ -72,7 +73,7 @@ def _created_paths_around_extraction(
     msi_path: Path,
     destination: Path,
     extract: Callable[[], None],
-) -> Set[Path]:
+) -> set[Path]:
     files_before = set(destination.rglob("*")) if destination.exists() else set()
     extract()
     files_after = set(destination.rglob("*")) if destination.exists() else set()
@@ -94,7 +95,7 @@ def _created_paths_around_extraction(
 class PyMsiExtractor:
     """Pure-Python MSI extractor backed by python-msi/pymsi."""
 
-    def extract(self, msi_path: Path, destination: Path) -> Set[Path]:
+    def extract(self, msi_path: Path, destination: Path) -> set[Path]:
         logger.info(f"Extracting MSI with pymsi: {msi_path} → {destination}")
         destination.mkdir(parents=True, exist_ok=True)
 
@@ -146,7 +147,7 @@ class PyMsiExtractor:
 class MsiexecMsiExtractor:
     """MSI extractor backed by the legacy msiexec /a extraction hack."""
 
-    def extract(self, msi_path: Path, destination: Path) -> Set[Path]:
+    def extract(self, msi_path: Path, destination: Path) -> set[Path]:
         logger.info(f"Extracting MSI with msiexec: {msi_path} → {destination}")
 
         target_dir = str(destination.resolve())
@@ -183,7 +184,7 @@ class FallbackMsiExtractor:
         self.primary = primary
         self.fallback = fallback
 
-    def extract(self, msi_path: Path, destination: Path) -> Set[Path]:
+    def extract(self, msi_path: Path, destination: Path) -> set[Path]:
         try:
             return self.primary.extract(msi_path, destination)
         except MsiExtractionError as exc:
@@ -230,7 +231,7 @@ def _prepare_working_directory(base_dir: Path) -> Generator[Path, None, None]:
 
 def _extract_zip_file(
     zip_path: Path, destination: Path, base_path: str = "Contents/"
-) -> List[Path]:
+) -> list[Path]:
     logger.info(f"Extracting ZIP: {zip_path} → {destination}")
     extracted = []
     with zipfile.ZipFile(zip_path, "r") as zf:
@@ -245,7 +246,7 @@ def _extract_zip_file(
     return extracted
 
 
-def _extract_msi_file(msi_path: Path, destination: Path) -> Set[Path]:
+def _extract_msi_file(msi_path: Path, destination: Path) -> set[Path]:
     """
     Extract an MSI file with the original msiexec /a path.
 
@@ -258,13 +259,13 @@ def _extract_msi_file(msi_path: Path, destination: Path) -> Set[Path]:
 
 
 def extract_package_files(
-    files_map: Dict[str, Path],
+    files_map: dict[str, Path],
     output_dir: Path,
     extract_msvc: bool = True,
     extract_sdk: bool = True,
-    lockfile: Optional[Lockfile] = None,
-    msi_extractor: Optional[MsiExtractor] = None,
-) -> Dict[str, Set[Path]]:
+    lockfile: Lockfile | None = None,
+    msi_extractor: MsiExtractor | None = None,
+) -> dict[str, set[Path]]:
     """
     Extract package files from their cached locations to the output directory.
     Uses a temporary working directory that gets renamed to the final output directory.
@@ -276,7 +277,7 @@ def extract_package_files(
     temp_output_dir.mkdir(parents=True, exist_ok=True)
     msi_extractor = msi_extractor or default_msi_extractor()
 
-    results: Dict[str, Set[Path]] = {"msvc": set(), "sdk": set()}
+    results: dict[str, set[Path]] = {"msvc": set(), "sdk": set()}
 
     try:
         with _prepare_working_directory(Path(TEMP_DIR)) as workdir:

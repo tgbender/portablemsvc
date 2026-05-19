@@ -1,13 +1,14 @@
-import io
 import hashlib
+import io
 import json
 import logging
 import os
-from pathlib import Path
-import requests
 import time
-from typing import Dict, Any, Tuple, Optional
+from contextlib import suppress
+from pathlib import Path
+from typing import Any
 
+import requests
 from filelock import FileLock, Timeout
 
 from .config import CACHE_DIR
@@ -25,11 +26,11 @@ logger = logging.getLogger(__name__)
 __all__ = ["download_file", "download_files"]
 
 
-def _load_hash_map(hash_map_file: Path) -> Dict[str, Any]:
+def _load_hash_map(hash_map_file: Path) -> dict[str, Any]:
     """Load the hash-to-names mapping from disk."""
     if hash_map_file.exists():
         try:
-            with open(hash_map_file, "r") as f:
+            with open(hash_map_file) as f:
                 return json.load(f)
         except json.JSONDecodeError:
             logger.warning(f"Corrupted hash map file: {hash_map_file}")
@@ -37,7 +38,7 @@ def _load_hash_map(hash_map_file: Path) -> Dict[str, Any]:
     return {}
 
 
-def _save_hash_map(hash_map_file: Path, hash_to_names: Dict[str, Any]):
+def _save_hash_map(hash_map_file: Path, hash_to_names: dict[str, Any]):
     """Save the hash-to-names mapping to disk."""
     try:
         with open(hash_map_file, "w") as f:
@@ -46,25 +47,23 @@ def _save_hash_map(hash_map_file: Path, hash_to_names: Dict[str, Any]):
         logger.error(f"Failed to save hash map: {e}")
 
 
-def _save_hash_map_atomic(hash_map_file: Path, hash_to_names: Dict[str, Any]):
+def _save_hash_map_atomic(hash_map_file: Path, hash_to_names: dict[str, Any]):
     """Save the hash map to file using atomic operations."""
     temp_path = f"{hash_map_file}.tmp"
     try:
         with open(temp_path, "w") as f:
             json.dump(hash_to_names, f, indent=2)
         os.replace(temp_path, str(hash_map_file))  # Atomic operation
-    except IOError as e:
+    except OSError as e:
         logger.error(f"Error saving hash map: {e}")
         if os.path.exists(temp_path):
-            try:
+            with suppress(OSError):
                 os.unlink(temp_path)
-            except OSError:
-                pass
 
 
 def _stream_download(
     url: str, original_name: str, max_retries: int = 3, base_wait_time: float = 2.0
-) -> Tuple[bytes, str]:
+) -> tuple[bytes, str]:
     """
     Stream download a file while calculating its hash incrementally.
     Supports retries and resuming downloads.
@@ -103,7 +102,8 @@ def _stream_download(
             if response.status_code == 200 and downloaded > 0:
                 # Server ignored Range header and sent full content
                 logger.warning(
-                    f"Server sent full content instead of resuming {original_name}. Restarting download."
+                    "Server sent full content instead of resuming "
+                    f"{original_name}. Restarting download."
                 )
                 data = io.BytesIO()
                 hash_obj = hashlib.sha256()
@@ -134,7 +134,8 @@ def _stream_download(
             if retry < max_retries - 1:
                 wait_time = base_wait_time * (2**retry)
                 logger.warning(
-                    f"Download attempt {retry + 1} failed for {original_name} at byte {downloaded}: {e}. Retrying in {wait_time}s..."
+                    f"Download attempt {retry + 1} failed for {original_name} "
+                    f"at byte {downloaded}: {e}. Retrying in {wait_time}s..."
                 )
                 time.sleep(wait_time)
             else:
@@ -150,10 +151,10 @@ def _download_file(
     expected_hash: str,
     original_name: str,
     cache_dir: Path,
-    hash_to_names: Dict[str, Any],
+    hash_to_names: dict[str, Any],
     max_retries: int = 3,
     base_wait_time: float = 2.0,
-) -> Tuple[bytes, Path, bool]:
+) -> tuple[bytes, Path, bool]:
     """
     Download a file, validate its hash, and cache it.
 
@@ -193,7 +194,9 @@ def _download_file(
             return data, cache_path, hash_map_updated
         else:
             logger.warning(
-                f"Hash mismatch for cached file {cache_path}. Expected {expected_hash}, got {actual_hash}. Deleting corrupted cache."
+                f"Hash mismatch for cached file {cache_path}. "
+                f"Expected {expected_hash}, got {actual_hash}. "
+                "Deleting corrupted cache."
             )
             try:
                 cache_path.unlink()
@@ -272,7 +275,7 @@ class DownloadManager:
 
     def download(
         self, url: str, expected_hash: str, original_name: str
-    ) -> Tuple[bytes, Path]:
+    ) -> tuple[bytes, Path]:
         data, path, updated = _download_file(
             url,
             expected_hash,
@@ -320,7 +323,7 @@ def download_file(
     cache_dir: Path = CACHE_DIR,
     max_retries: int = 3,
     base_wait_time: float = 2.0,
-) -> Tuple[bytes, Path]:
+) -> tuple[bytes, Path]:
     """
     Download a single file with caching and hash verification.
 
@@ -338,12 +341,12 @@ def download_file(
 
 
 def download_files(
-    files_to_download: Dict[str, Dict[str, str]],
+    files_to_download: dict[str, dict[str, str]],
     cache_dir: Path = CACHE_DIR,
     max_retries: int = 3,
     base_wait_time: float = 2.0,
-    lockfile: Optional[Lockfile] = None,
-) -> Dict[str, Path]:
+    lockfile: Lockfile | None = None,
+) -> dict[str, Path]:
     """
     Download multiple files with caching and hash verification.
 

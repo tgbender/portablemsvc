@@ -1,4 +1,5 @@
 import pytest
+
 from portablemsvc.manifest import get_vs_manifest
 
 

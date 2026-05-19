@@ -55,6 +55,12 @@ markers = [
 target-version = "py310"
 line-length = 100
 
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = [
+  "B008", # typer.Argument/Option in defaults is the intended Typer pattern
+]
+
 [tool.mypy]
 ignore_missing_imports = true
 disable_error_code = ["import-untyped"]

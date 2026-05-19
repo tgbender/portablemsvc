@@ -1,12 +1,12 @@
-import json
-import uuid
-import logging
 import datetime
+import json
+import logging
 import os
 import shutil
 import tempfile
+import uuid
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Any
 
 from filelock import FileLock
 
@@ -19,7 +19,7 @@ LOCK_TIMEOUT = 60  # seconds
 LOCK_TTL = 300  # seconds (5 minutes)
 
 
-def _atomic_write_json(path: Path, data: Dict[str, Any]) -> None:
+def _atomic_write_json(path: Path, data: dict[str, Any]) -> None:
     """
     Atomically write `data` as JSON to `path`:
       1) dump into a temp file alongside `path`
@@ -53,7 +53,7 @@ def _cleanup_stale_lock(lock_file: Path) -> None:
             logger.error(f"Error checking lock file {lock_file}: {e}")
 
 
-def get_installed_versions(db_path: Optional[Path] = None) -> Dict[str, Dict[str, Any]]:
+def get_installed_versions(db_path: Path | None = None) -> dict[str, dict[str, Any]]:
     """
     Get a dictionary of installed MSVC versions from the database.
 
@@ -78,7 +78,7 @@ def get_installed_versions(db_path: Optional[Path] = None) -> Dict[str, Dict[str
         lock.acquire()
 
         return json.loads(db_path.read_text())
-    except (json.JSONDecodeError, IOError) as e:
+    except (OSError, json.JSONDecodeError) as e:
         logger.warning(f"Failed to read installation database at {db_path}: {e}")
         return {}
     finally:
@@ -94,8 +94,8 @@ def save_installed_version(
     sdk_version: str,
     sdk_build_number: str,
     host: str,
-    targets: List[str],
-    db_path: Optional[Path] = None,
+    targets: list[str],
+    db_path: Path | None = None,
 ) -> str:
     """
     Save installation details to the database.
@@ -138,7 +138,7 @@ def save_installed_version(
         if db_path.exists():
             try:
                 installations = json.loads(db_path.read_text())
-            except (json.JSONDecodeError, IOError):
+            except (OSError, json.JSONDecodeError):
                 logger.warning("Failed to read existing database, creating new one")
 
         # Add new installation
@@ -164,12 +164,12 @@ def save_installed_version(
 
 
 def is_version_installed(
-    msvc_toolset_version: Optional[str],
-    sdk_build_number: Optional[str],
+    msvc_toolset_version: str | None,
+    sdk_build_number: str | None,
     host: str,
-    targets: List[str],
-    db_path: Optional[Path] = None,
-) -> Optional[str]:
+    targets: list[str],
+    db_path: Path | None = None,
+) -> str | None:
     """
     Check if a specific version is already installed.
 
@@ -218,7 +218,7 @@ def is_version_installed(
 
 
 def remove_installation(
-    install_id: str, delete_files: bool = False, db_path: Optional[Path] = None
+    install_id: str, delete_files: bool = False, db_path: Path | None = None
 ) -> bool:
     """
     Remove an installation from the database and optionally delete files.
@@ -248,7 +248,7 @@ def remove_installation(
 
         try:
             installations = json.loads(db_path.read_text())
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             logger.error("Failed to read installation database")
             return False
 

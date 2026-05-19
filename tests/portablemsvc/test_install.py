@@ -2,15 +2,14 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional
-
-import pytest
-from plumbum import local
+from typing import Any
 
 # Access the shared install_state from conftest
 import conftest
+import pytest
+from plumbum import local
 
-install_state: Dict[str, Optional[Dict[str, Any]]] = conftest.install_state
+install_state: dict[str, dict[str, Any] | None] = conftest.install_state
 
 pytestmark = pytest.mark.slow_install  # All tests in this file are slow
 

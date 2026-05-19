@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class Lockfile:
@@ -16,11 +16,11 @@ class Lockfile:
         *,
         channel: str,
         host: str,
-        targets: List[str],
-        msvc_version: Optional[str] = None,
-        sdk_version: Optional[str] = None,
+        targets: list[str],
+        msvc_version: str | None = None,
+        sdk_version: str | None = None,
     ):
-        self.data: Dict[str, Any] = {
+        self.data: dict[str, Any] = {
             "lockfile_version": "1.0",
             "created_at": datetime.now(timezone.utc).isoformat(),
             "channel": channel,
@@ -94,10 +94,10 @@ class Lockfile:
         sha256: str,
         file_type: str,  # "zip", "msi", "cab", "vsix"
         package_ref: str,
-        parent: Optional[str] = None,  # For CABs, the parent MSI filename
-    ) -> Dict[str, Any]:
+        parent: str | None = None,  # For CABs, the parent MSI filename
+    ) -> dict[str, Any]:
         """Add a file entry and return the entry dict for later updates."""
-        entry: Dict[str, Any] = {
+        entry: dict[str, Any] = {
             "id": file_id,
             "filename": filename,
             "url": url,
@@ -111,7 +111,7 @@ class Lockfile:
         self.data["files"].append(entry)
         return entry
 
-    def get_file_entry(self, filename: str) -> Optional[Dict[str, Any]]:
+    def get_file_entry(self, filename: str) -> dict[str, Any] | None:
         """Find a file entry by filename."""
         for f in self.data["files"]:
             if f["filename"] == filename:
@@ -147,7 +147,7 @@ class Lockfile:
         self.data["removed_files"].append(str(path))
 
     def set_env_spec(
-        self, spec: Dict[str, Any], install_root: Optional[Path] = None
+        self, spec: dict[str, Any], install_root: Path | None = None
     ) -> None:
         """Record the environment specification with portable paths.
 
@@ -175,7 +175,7 @@ class Lockfile:
                 """
                 if not isinstance(path_str, str):
                     return path_str
-                # If under install_root, make relative (checked first since install_root is typically under home)
+                # Check install_root first since it is typically under home.
                 if path_str.startswith(root_str):
                     rel = path_str[len(root_str) :]
                     if rel.startswith("\\") or rel.startswith("/"):
@@ -213,7 +213,7 @@ class Lockfile:
         """Record the installation ID."""
         self.data["install_id"] = install_id
 
-    def set_tool_versions(self, tool_versions: Dict[str, str]) -> None:
+    def set_tool_versions(self, tool_versions: dict[str, str]) -> None:
         """Record the versions of installed tools (cl.exe, lib.exe, etc.)."""
         self.data["tool_versions"] = tool_versions
 
@@ -221,11 +221,11 @@ class Lockfile:
         """Record the detected on-disk VCToolsVersion (detected after extraction)."""
         self.data["resolved"]["msvc"]["vctools_version"] = vctools_version
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Return the lockfile as a dictionary."""
         return self.data
 
-    def get_absolute_env_spec(self, install_root: Path) -> Dict[str, Any]:
+    def get_absolute_env_spec(self, install_root: Path) -> dict[str, Any]:
         """Generate absolute env_spec from portable paths.
 
         Expands %USERPROFILE% and relative paths to absolute.
@@ -282,7 +282,7 @@ class Lockfile:
         path.write_text(json.dumps(self.data, indent=2), encoding="utf-8")
 
     @classmethod
-    def load(cls, path: Path) -> "Lockfile":
+    def load(cls, path: Path) -> Lockfile:
         """Load a lockfile from disk."""
         instance = cls.__new__(cls)
         instance.data = json.loads(path.read_text(encoding="utf-8"))

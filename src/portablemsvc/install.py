@@ -1,12 +1,12 @@
-import shutil
-import logging
 import json
+import logging
+import shutil
 from pathlib import Path
-from typing import Dict, List, Set, Optional, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from .install_status import (
-    save_installed_version,
     is_version_installed,
+    save_installed_version,
 )
 
 if TYPE_CHECKING:
@@ -41,7 +41,7 @@ def _cleanup_unnecessary_files(
     msvc_version: str,
     sdk_version: str,
     host: str,
-    targets: List[str],
+    targets: list[str],
     lockfile: Optional["Lockfile"] = None,
 ):
     """
@@ -125,7 +125,7 @@ def _cleanup_unnecessary_files(
             file_path.unlink(missing_ok=True)
 
 
-def _setup_msdia140(output_dir: Path, msvc_version: str, host: str, targets: List[str]):
+def _setup_msdia140(output_dir: Path, msvc_version: str, host: str, targets: list[str]):
     """
     Copy msdia140.dll file into MSVC bin folder.
 
@@ -157,7 +157,7 @@ def _setup_msdia140(output_dir: Path, msvc_version: str, host: str, targets: Lis
 
 
 def _setup_debug_crt(
-    output_dir: Path, msvc_version: str, host: str, targets: List[str]
+    output_dir: Path, msvc_version: str, host: str, targets: list[str]
 ):
     """
     Place debug CRT runtime files into MSVC bin folder.
@@ -194,7 +194,7 @@ def _setup_debug_crt(
 
 
 def _create_setup_batch_files(
-    output_dir: Path, msvc_version: str, sdk_version: str, host: str, targets: List[str]
+    output_dir: Path, msvc_version: str, sdk_version: str, host: str, targets: list[str]
 ):
     """
     Create setup batch files for each target architecture.
@@ -222,6 +222,24 @@ def _create_setup_batch_files(
 
     # Create setup batch files for each target
     for target in targets:
+        setup_path = (
+            f"%~dp0VC\\Tools\\MSVC\\{msvc_version}\\bin\\Host{host}\\{target};"
+            f"%~dp0Windows Kits\\10\\bin\\{sdk_version}\\{host};"
+            f"%~dp0Windows Kits\\10\\bin\\{sdk_version}\\{host}\\ucrt;%PATH%"
+        )
+        setup_include = (
+            f"%~dp0VC\\Tools\\MSVC\\{msvc_version}\\include;"
+            f"%~dp0Windows Kits\\10\\Include\\{sdk_version}\\ucrt;"
+            f"%~dp0Windows Kits\\10\\Include\\{sdk_version}\\shared;"
+            f"%~dp0Windows Kits\\10\\Include\\{sdk_version}\\um;"
+            f"%~dp0Windows Kits\\10\\Include\\{sdk_version}\\winrt;"
+            f"%~dp0Windows Kits\\10\\Include\\{sdk_version}\\cppwinrt"
+        )
+        setup_lib = (
+            f"%~dp0VC\\Tools\\MSVC\\{msvc_version}\\lib\\{target};"
+            f"%~dp0Windows Kits\\10\\Lib\\{sdk_version}\\ucrt\\{target};"
+            f"%~dp0Windows Kits\\10\\Lib\\{sdk_version}\\um\\{target}"
+        )
         setup_content = rf"""@echo off
 
 set VSCMD_ARG_HOST_ARCH={host}
@@ -233,9 +251,9 @@ set WindowsSDKVersion={sdk_version}\
 set VCToolsInstallDir=%~dp0VC\Tools\MSVC\{msvc_version}\
 set WindowsSdkBinPath=%~dp0Windows Kits\10\bin\
 
-set PATH=%~dp0VC\Tools\MSVC\{msvc_version}\bin\Host{host}\{target};%~dp0Windows Kits\10\bin\{sdk_version}\{host};%~dp0Windows Kits\10\bin\{sdk_version}\{host}\ucrt;%PATH%
-set INCLUDE=%~dp0VC\Tools\MSVC\{msvc_version}\include;%~dp0Windows Kits\10\Include\{sdk_version}\ucrt;%~dp0Windows Kits\10\Include\{sdk_version}\shared;%~dp0Windows Kits\10\Include\{sdk_version}\um;%~dp0Windows Kits\10\Include\{sdk_version}\winrt;%~dp0Windows Kits\10\Include\{sdk_version}\cppwinrt
-set LIB=%~dp0VC\Tools\MSVC\{msvc_version}\lib\{target};%~dp0Windows Kits\10\Lib\{sdk_version}\ucrt\{target};%~dp0Windows Kits\10\Lib\{sdk_version}\um\{target}
+set PATH={setup_path}
+set INCLUDE={setup_include}
+set LIB={setup_lib}
 """
         (output_dir / f"setup_{target}.bat").write_text(setup_content)
 
@@ -271,15 +289,15 @@ def _detect_msvc_vctools_version(
 
 def install_msvc_components(
     output_dir: Path,
-    extracted_files: Dict[str, Set[Path]],
+    extracted_files: dict[str, set[Path]],
     host: str,
-    targets: List[str],
+    targets: list[str],
     msvc_toolset_version: str,
     msvc_package_version: str,
     sdk_build_number: str,
     sdk_version: str,
     lockfile: Optional["Lockfile"] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Install MSVC components after extraction.
 
@@ -371,9 +389,9 @@ def _collect_tool_versions(
     output_dir: Path,
     msvc_version: str,
     host: str,
-    targets: List[str],
+    targets: list[str],
     lockfile: Optional["Lockfile"] = None,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """
     Collect PE file versions from MSVC tools (cl.exe, lib.exe, link.exe, nmake.exe).
 
@@ -416,7 +434,7 @@ def _collect_tool_versions(
             tools["nmake.exe"] = nmake_path
             break
 
-    tool_versions: Dict[str, str] = {}
+    tool_versions: dict[str, str] = {}
 
     for tool_name, tool_path in tools.items():
         if not tool_path.exists():
@@ -460,14 +478,14 @@ def _collect_tool_versions(
 def _generate_env_spec(
     install_root: Path,
     host: str,
-    targets: List[str],
+    targets: list[str],
     msvc_toolset_version: str,
     msvc_package_version: str,
     msvc_vctools_version: str,
     sdk_build_number: str,
     sdk_version: str,
-    tool_versions: Optional[Dict[str, str]] = None,
-) -> Dict[str, Any]:
+    tool_versions: dict[str, str] | None = None,
+) -> dict[str, Any]:
     """
     Build and write install_root/env.json describing all env vars
     needed to activate this MSVC install.
@@ -485,7 +503,7 @@ def _generate_env_spec(
     primary_tgt = targets[0] if targets else host
     msvc_bin_primary = msvc_bin_root / primary_tgt
 
-    spec: Dict[str, Any] = {
+    spec: dict[str, Any] = {
         "VSCMD_ARG_HOST_ARCH": host,
         "VSCMD_ARG_TGT_ARCH": targets,
         "VCToolsVersion": msvc_vctools_version,
@@ -513,7 +531,7 @@ def _generate_env_spec(
     }
 
     # PATH entries
-    path_entries: List[str] = []
+    path_entries: list[str] = []
     for tgt in targets:
         path_entries.append(str(msvc_bin_root / tgt))
 
@@ -549,7 +567,7 @@ def _generate_env_spec(
     ]
 
     # LIB and LIBPATH entries
-    lib_entries: List[str] = []
+    lib_entries: list[str] = []
     for tgt in targets:
         lib_entries += [
             str(
@@ -588,7 +606,7 @@ def _generate_env_spec(
 
 
 def _write_activation_scripts(
-    install_root: Path, spec: Optional[Dict[str, Any]] = None
+    install_root: Path, spec: dict[str, Any] | None = None
 ) -> None:
     """
     Emit activate.cmd and activate.ps1 under install_root,

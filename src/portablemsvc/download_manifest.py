@@ -1,9 +1,9 @@
 import logging
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any
 
-from .download import download_files
 from .config import CACHE_DIR
+from .download import download_files
 from .lockfile import Lockfile
 
 logger = logging.getLogger(__name__)
@@ -12,10 +12,10 @@ __all__ = ["download_manifest_files"]
 
 
 def download_manifest_files(
-    parsed_manifest: Dict[str, Any],
+    parsed_manifest: dict[str, Any],
     cache_dir: Path = CACHE_DIR,
-    lockfile: Optional[Lockfile] = None,
-) -> Dict[str, Path]:
+    lockfile: Lockfile | None = None,
+) -> dict[str, Path]:
     """
     Download files specified in the parsed manifest.
 

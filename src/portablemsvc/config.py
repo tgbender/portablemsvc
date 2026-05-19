@@ -4,9 +4,9 @@ from pathlib import Path
 from typing import NewType
 
 from platformdirs import (
+    user_cache_dir,
     user_config_dir,
     user_data_dir,
-    user_cache_dir,
     user_runtime_dir,
 )
 
@@ -30,10 +30,10 @@ TEMP_DIR = Path(
 )  # put temp things here
 
 DEFAULT_HOST = "x64"
-ALL_HOSTS = "x64 x86 arm64".split()
+ALL_HOSTS = ["x64", "x86", "arm64"]
 
 DEFAULT_TARGET = "x64"
-ALL_TARGETS = "x64 x86 arm arm64".split()
+ALL_TARGETS = ["x64", "x86", "arm", "arm64"]
 
 MANIFEST_URL = "https://aka.ms/vs/17/release/channel"
 MANIFEST_PREVIEW_URL = "https://aka.ms/vs/17/pre/channel"

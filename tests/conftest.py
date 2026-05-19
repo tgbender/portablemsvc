@@ -1,14 +1,13 @@
 """Pytest configuration and fixtures."""
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import pytest
 from plumbum import local
 
-
 # Session state for test installs - use dict instead of dynamic module attributes
-install_state: Dict[str, Optional[Dict[str, Any]]] = {
+install_state: dict[str, dict[str, Any] | None] = {
     "normal_test_install": None,
     "lockfile_test_install": None,
 }

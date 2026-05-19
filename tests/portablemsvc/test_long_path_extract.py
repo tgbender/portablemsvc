@@ -3,13 +3,13 @@
 import json
 import os
 import shutil
-import pytest
 from pathlib import Path
 
-from portablemsvc.extract import _extract_msi_file, MsiExtractionError
-from portablemsvc.config import CACHE_DIR
-from portablemsvc.parse_msi import get_msi_cab_files
+import pytest
 
+from portablemsvc.config import CACHE_DIR
+from portablemsvc.extract import MsiExtractionError, _extract_msi_file
+from portablemsvc.parse_msi import get_msi_cab_files
 
 # Constants
 MAX_PATH = 260

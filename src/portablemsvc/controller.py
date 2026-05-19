@@ -1,22 +1,21 @@
 import logging
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .config import CACHE_DIR, DATA_DIR, DEFAULT_HOST, DEFAULT_TARGET
+from .download import download_files
+from .download_manifest import download_manifest_files
+from .extract import MsiExtractor, extract_package_files
+from .install import _generate_env_spec, _write_activation_scripts, install_msvc_components
+from .install_status import (
+    get_installed_versions,
+    is_version_installed,
+)
+from .lockfile import Lockfile
 from .manifest import get_vs_manifest
 from .parse_manifest import parse_vs_manifest
-from .download_manifest import download_manifest_files
 from .parse_msi import parse_msi_for_cabs
-from .download import download_files
-from .extract import MsiExtractor, extract_package_files
-from .install import install_msvc_components
-from .install_status import (
-    is_version_installed,
-    get_installed_versions,
-)
-from .install import _generate_env_spec, _write_activation_scripts
-from .lockfile import Lockfile
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +24,7 @@ __all__ = ["get_available_versions", "install_msvc", "install_from_lockfile"]
 
 def get_available_versions(
     *, channel: str = "release", cache: bool = True
-) -> Dict[str, List[str]]:
+) -> dict[str, list[str]]:
     """
     Return dict with 'msvc' and 'sdk' listing the available versions
     for the given channel.
@@ -45,17 +44,17 @@ def get_available_versions(
 def install_msvc(
     *,
     host: str = DEFAULT_HOST,
-    targets: Optional[List[str]] = None,
-    msvc_version: Optional[str] = None,
-    sdk_version: Optional[str] = None,
+    targets: list[str] | None = None,
+    msvc_version: str | None = None,
+    sdk_version: str | None = None,
     channel: str = "release",
     cache: bool = True,
     force: bool = False,
-    output_dir: Optional[Path] = None,
-    lockfile_path: Optional[Path] = None,
+    output_dir: Path | None = None,
+    lockfile_path: Path | None = None,
     accept_license: bool = False,
-    msi_extractor: Optional[MsiExtractor] = None,
-) -> Dict[str, Any]:
+    msi_extractor: MsiExtractor | None = None,
+) -> dict[str, Any]:
     """
     Full portable-MSVC installation:
       1) check DB for existing install (unless force=True)
@@ -209,10 +208,10 @@ def install_msvc(
 def install_from_lockfile(
     *,
     lockfile_path: Path,
-    output_dir: Optional[Path] = None,
+    output_dir: Path | None = None,
     accept_license: bool = False,
-    msi_extractor: Optional[MsiExtractor] = None,
-) -> Dict[str, Any]:
+    msi_extractor: MsiExtractor | None = None,
+) -> dict[str, Any]:
     """
     Install MSVC from an existing lockfile for reproducible builds.
     Uses the exact URLs and hashes recorded in the lockfile.
@@ -266,7 +265,7 @@ def install_from_lockfile(
 
     # Build files_map compatible with extract_package_files
     # (maps original filename -> local cached path, same shape as normal flow)
-    files_map: Dict[str, Path] = {}
+    files_map: dict[str, Path] = {}
     for filename, cached_path in downloaded_files.items():
         files_map[filename] = cached_path
 

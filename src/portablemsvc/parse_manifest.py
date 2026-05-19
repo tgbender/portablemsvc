@@ -1,14 +1,16 @@
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Any
 
-from .manifest_items import get_msvc_packages, get_sdk_packages, resolve_redist_packages
 from .config import (
-    MSVC_PACKAGE_PREFIX,
     MSVC_HOST_TARGET_SUFFIX,
+    MSVC_PACKAGE_PREFIX,
     WIN10_SDK_PREFIX,
     WIN11_SDK_PREFIX,
+)
+from .config import (
     first as _first,
 )
+from .manifest_items import get_msvc_packages, get_sdk_packages, resolve_redist_packages
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +31,7 @@ def _build_package_lookup(vs_manifest):
 def _find_msvc_versions(packages):
     """Find all MSVC versions in the package dictionary."""
     msvc_versions = {}
-    for pid, p in packages.items():
+    for pid in packages:
         if pid.startswith(MSVC_PACKAGE_PREFIX.lower()) and pid.endswith(
             MSVC_HOST_TARGET_SUFFIX.lower()
         ):
@@ -49,7 +51,7 @@ def _find_msvc_versions(packages):
 def _find_sdk_versions(packages):
     """Find all SDK versions in the package dictionary."""
     sdk_versions = {}
-    for pid, p in packages.items():
+    for pid in packages:
         if pid.startswith(WIN10_SDK_PREFIX.lower()) or pid.startswith(
             WIN11_SDK_PREFIX.lower()
         ):
@@ -68,7 +70,7 @@ def _find_sdk_versions(packages):
 
 def _select_msvc_version(msvc_versions, requested_version):
     """Select the MSVC version to use."""
-    # Allow specifying a full 4-part build (e.g. "14.44.17.14") and map back to its major.minor bucket
+    # Allow specifying a full 4-part build and map back to its major.minor bucket.
     if requested_version and requested_version.count(".") == 3:
         for bucket, pid in msvc_versions.items():
             full = ".".join(pid.split(".")[2:6])
@@ -86,7 +88,8 @@ def _select_msvc_version(msvc_versions, requested_version):
             selected_pid = msvc_versions[requested_version]
         else:
             raise ValueError(
-                f"Specified MSVC version {requested_version} not found. Available versions: {', '.join(sorted(msvc_versions.keys()))}"
+                f"Specified MSVC version {requested_version} not found. "
+                f"Available versions: {', '.join(sorted(msvc_versions.keys()))}"
             )
     else:
         selected_ver = max(sorted(msvc_versions.keys()))
@@ -110,7 +113,8 @@ def _select_sdk_version(sdk_versions, requested_version):
             selected_pid = sdk_versions[requested_version]
         else:
             raise ValueError(
-                f"Specified SDK version {requested_version} not found. Available versions: {', '.join(sorted(sdk_versions.keys()))}"
+                f"Specified SDK version {requested_version} not found. "
+                f"Available versions: {', '.join(sorted(sdk_versions.keys()))}"
             )
     else:
         selected_ver = max(sorted(sdk_versions.keys()))
@@ -152,9 +156,11 @@ def _validate_manifest_ver(msvc_versions, msvc_ver):
             full_ver = msvc_versions[msvc_ver]
             package_ver = ".".join(full_ver.split(".")[2:6])
             return package_ver
-        except KeyError:
+        except KeyError as exc:
             logger.error(f"MSVC toolset version {msvc_ver} not found in manifest")
-            raise ValueError(f"MSVC toolset version {msvc_ver} not found in manifest")
+            raise ValueError(
+                f"MSVC toolset version {msvc_ver} not found in manifest"
+            ) from exc
     elif num_periods == 3:
         for value in msvc_versions.values():
             test_value = ".".join(value.split(".")[2:6])
@@ -166,13 +172,13 @@ def _validate_manifest_ver(msvc_versions, msvc_ver):
 
 
 def parse_vs_manifest(
-    vs_manifest: Dict[str, Any],
+    vs_manifest: dict[str, Any],
     *,
     host: str = "x64",
-    targets: List[str] = ["x64"],
-    msvc_version: Optional[str] = None,
-    sdk_version: Optional[str] = None,
-) -> Dict[str, Any]:
+    targets: list[str] | None = None,
+    msvc_version: str | None = None,
+    sdk_version: str | None = None,
+) -> dict[str, Any]:
     """
     Parse the Visual Studio manifest to determine what packages need to be downloaded.
 
@@ -197,6 +203,9 @@ def parse_vs_manifest(
         KeyError: If required keys are missing from the manifest
     """
     try:
+        if targets is None:
+            targets = ["x64"]
+
         # Build package lookup
         packages = _build_package_lookup(vs_manifest)
 
@@ -256,9 +265,11 @@ def parse_vs_manifest(
         sdk_pkg_info = selected_sdk.get("package_info")
         if sdk_pkg_info and "payloads" in sdk_pkg_info:
             for pkg in sorted(sdk_packages):
+                expected_filename = f"Installers\\{pkg}"
                 payload = _first(
                     sdk_pkg_info["payloads"],
-                    lambda p: p["fileName"] == f"Installers\\{pkg}",
+                    lambda p, expected_filename=expected_filename: p["fileName"]
+                    == expected_filename,
                 )
                 if payload:
                     filename = pkg

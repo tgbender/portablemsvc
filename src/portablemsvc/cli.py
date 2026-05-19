@@ -2,15 +2,14 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Optional
 
 import typer
 
-from .config import DEFAULT_HOST, ALL_HOSTS, DEFAULT_TARGET, ALL_TARGETS
+from .config import ALL_HOSTS, ALL_TARGETS, DEFAULT_HOST, DEFAULT_TARGET
 from .controller import get_available_versions, install_msvc
+from .install_status import get_installed_versions
 from .manifest import get_license_url, get_vs_manifest
 from .parse_manifest import parse_vs_manifest
-from .install_status import get_installed_versions
 
 # setup a sane default logger
 logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
@@ -128,10 +127,10 @@ def search(
 
 @app.command("install")
 def install(
-    msvc_version: Optional[str] = typer.Option(
+    msvc_version: str | None = typer.Option(
         None, "--msvc-version", help="Force specific MSVC version"
     ),
-    sdk_version: Optional[str] = typer.Option(
+    sdk_version: str | None = typer.Option(
         None, "--sdk-version", help="Force specific Windows SDK version"
     ),
     channel: str = typer.Option(
@@ -147,7 +146,7 @@ def install(
     target: list[str] = typer.Option(
         [], "--target", help=f"Target archs ({','.join(ALL_TARGETS)})"
     ),
-    output: Optional[str] = typer.Option(
+    output: str | None = typer.Option(
         None, "--output", help="Custom installation output directory"
     ),
 ) -> None:
@@ -199,7 +198,7 @@ def install(
 
 @app.command("register")
 def register(
-    install_id: Optional[str] = typer.Option(
+    install_id: str | None = typer.Option(
         None,
         "--id",
         help="ID of the installation to register (omit to pick highest MSVC version)",
@@ -225,7 +224,7 @@ def register(
 
         selected_id, _ = max(installs.items(), key=version_key)
 
-    rec: Optional[dict] = installs.get(selected_id)
+    rec: dict | None = installs.get(selected_id)
     if not rec:
         typer.echo(f"Error: No installation with ID '{selected_id}'", err=True)
         raise typer.Exit(1)
@@ -240,7 +239,7 @@ def register(
 
 @app.command("unregister")
 def unregister(
-    install_id: Optional[str] = typer.Option(
+    install_id: str | None = typer.Option(
         None,
         "--id",
         help="ID of the installation to unregister (omit for current)",
@@ -248,10 +247,10 @@ def unregister(
 ) -> None:
     """Unregister a toolchain from HKCU\\Environment."""
     from .registry_helpers import (
-        unregister_toolchain,
-        _load_state,
         _LOCK_FILE,
         FileLock,
+        _load_state,
+        unregister_toolchain,
     )
 
     iid = install_id
@@ -277,7 +276,7 @@ def install_from_lockfile(
     accept_license: bool = typer.Option(
         False, "--accept-license", help="Automatically accept license"
     ),
-    output: Optional[str] = typer.Option(
+    output: str | None = typer.Option(
         None, "--output", help="Custom installation output directory"
     ),
 ) -> None:
@@ -305,10 +304,10 @@ def install_from_lockfile(
 
 @app.command("get-path")
 def get_path(
-    install_id: Optional[str] = typer.Option(
+    install_id: str | None = typer.Option(
         None, "--id", help="Installation ID (omit for latest)"
     ),
-    lockfile: Optional[str] = typer.Option(
+    lockfile: str | None = typer.Option(
         None, "--lockfile", help="Path to portablemsvc.lock to find matching install"
     ),
 ) -> None:
@@ -330,7 +329,7 @@ def get_path(
         sdk_ver = resolved.get("sdk", {}).get("build_number")
 
         installs = get_installed_versions()
-        for iid, install_rec in installs.items():
+        for _iid, install_rec in installs.items():
             if (
                 install_rec.get("msvc_package_version") == msvc_ver
                 and install_rec.get("sdk_build_number") == sdk_ver
@@ -362,7 +361,7 @@ def get_path(
 
         selected_id, _ = max(installs.items(), key=version_key)
 
-    rec: Optional[dict] = installs.get(selected_id)
+    rec: dict | None = installs.get(selected_id)
     if not rec:
         typer.echo(f"Error: No installation with ID '{selected_id}'", err=True)
         raise typer.Exit(1)
@@ -378,10 +377,10 @@ def get_path(
 
 @app.command("get-activate")
 def get_activate(
-    install_id: Optional[str] = typer.Option(
+    install_id: str | None = typer.Option(
         None, "--id", help="Installation ID (omit for latest)"
     ),
-    lockfile: Optional[str] = typer.Option(
+    lockfile: str | None = typer.Option(
         None, "--lockfile", help="Path to portablemsvc.lock to find matching install"
     ),
     shell: str = typer.Option(
@@ -444,7 +443,7 @@ def get_activate(
     def _detect_shell() -> str:
         """Auto-detect the current shell."""
         # PowerShell detection
-        if os.getenv("PSVersionTable") or os.getenv("PSModulePath"):
+        if os.getenv("PSVERSIONTABLE") or os.getenv("PSMODULEPATH"):
             return "powershell"
         # Check parent process name
         try:

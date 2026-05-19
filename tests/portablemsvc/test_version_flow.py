@@ -81,7 +81,8 @@ def test_lockfile_has_correct_version_fields(normal_test_install):
     install_id, db_data = next(iter(installs.items()))
 
     assert sdk_resolved["build_number"] == db_data["sdk_build_number"], (
-        f"Lockfile SDK build_number {sdk_resolved['build_number']} != DB sdk_build_number {db_data['sdk_build_number']}"
+        f"Lockfile SDK build_number {sdk_resolved['build_number']} "
+        f"!= DB sdk_build_number {db_data['sdk_build_number']}"
     )
 
 
@@ -129,12 +130,14 @@ def test_env_json_versions_match(normal_test_install):
 
     # VCToolsVersion in env.json should match the on-disk vctools version
     assert env["VCToolsVersion"] == db_data["msvc_vctools_version"], (
-        f"env.json VCToolsVersion {env['VCToolsVersion']} != DB msvc_vctools_version {db_data['msvc_vctools_version']}"
+        f"env.json VCToolsVersion {env['VCToolsVersion']} "
+        f"!= DB msvc_vctools_version {db_data['msvc_vctools_version']}"
     )
 
     # WindowsSDKVersion in env.json should match internal SDK version
     assert env["WindowsSDKVersion"] == db_data["sdk_version"], (
-        f"env.json WindowsSDKVersion {env['WindowsSDKVersion']} != DB sdk_version {db_data['sdk_version']}"
+        f"env.json WindowsSDKVersion {env['WindowsSDKVersion']} "
+        f"!= DB sdk_version {db_data['sdk_version']}"
     )
 
 

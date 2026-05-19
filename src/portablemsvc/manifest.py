@@ -1,21 +1,21 @@
 # manifest.py setup
-import requests
-import json
-from pathlib import Path
 import hashlib
-import time
+import json
 import logging
+import time
+from pathlib import Path
+from typing import Any
 
-from typing import Tuple, Dict, Any
+import requests
 
 from .config import (
     CACHE_DIR,
-    MANIFEST_URL,
-    MANIFEST_PREVIEW_URL,
-    RELEASE_CHANNEL_MANIFEST_NAME,
-    PREVIEW_CHANNEL_MANIFEST_NAME,
     MANIFEST_CACHE_TTL,
+    MANIFEST_PREVIEW_URL,
     MANIFEST_REQUEST_TIMEOUT,
+    MANIFEST_URL,
+    PREVIEW_CHANNEL_MANIFEST_NAME,
+    RELEASE_CHANNEL_MANIFEST_NAME,
 )
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ def _download_channel_manifest(
     cache: bool = True,
     cache_dir: Path = CACHE_DIR,
     cache_ttl: int = MANIFEST_CACHE_TTL,
-) -> Tuple[Dict[str, Any], str, str]:
+) -> tuple[dict[str, Any], str, str]:
     # Pick the right channel
     if channel == "preview":
         manifest_fetch_url = MANIFEST_PREVIEW_URL
@@ -43,13 +43,13 @@ def _download_channel_manifest(
     else:
         raise ValueError(f"Unknown channel: {channel}")
 
-    # Check if the cached manifest file exists. If it does, and isn't older than the TTL, then load the json from the file
+    # Load a fresh-enough cached manifest when available.
     if cache and cache_path.exists() and cache_meta_path.exists():
-        with open(cache_meta_path, "r") as f:
+        with open(cache_meta_path) as f:
             cache_meta = json.load(f)
 
         if time.time() - cache_meta["timestamp"] < cache_ttl:
-            with open(cache_path, "r") as f:
+            with open(cache_path) as f:
                 manifest = json.load(f)
             # Return with source info for lockfile
             return manifest, cache_meta.get("url", ""), cache_meta.get("hash", "")
@@ -92,11 +92,11 @@ def _download_channel_manifest(
         # If we have a cache (even if expired), use it as fallback
         if cache_path.exists():
             logger.warning("Using expired cache as fallback")
-            with open(cache_path, "r") as f:
+            with open(cache_path) as f:
                 manifest = json.load(f)
             # Try to get cached metadata
             try:
-                with open(cache_meta_path, "r") as meta_f:
+                with open(cache_meta_path) as meta_f:
                     cache_meta = json.load(meta_f)
                     return (
                         manifest,
@@ -107,12 +107,12 @@ def _download_channel_manifest(
                 return manifest, "", ""
 
         # If all else fails, raise a standard exception
-        raise IOError(f"Failed to download manifest: {e}") from e
+        raise OSError(f"Failed to download manifest: {e}") from e
 
 
 def _parse_channel_manifest(
     channel_manifest: dict, channel: str = "release"
-) -> Tuple[str, str]:
+) -> tuple[str, str]:
     if channel == "preview":
         item_name = PREVIEW_CHANNEL_MANIFEST_NAME
     elif channel == "release":
@@ -148,7 +148,7 @@ def _download_vs_manifest(
     cache: bool = True,
     cache_dir: Path = CACHE_DIR,
     cache_ttl: int = MANIFEST_CACHE_TTL,
-) -> Tuple[Dict[str, Any], str, str]:
+) -> tuple[dict[str, Any], str, str]:
     """
     Download the Visual Studio manifest from the provided URL.
 
@@ -168,12 +168,12 @@ def _download_vs_manifest(
 
     # Check if the cached manifest file exists and isn't older than the TTL
     if cache and cache_path.exists() and cache_meta_path.exists():
-        with open(cache_meta_path, "r") as f:
+        with open(cache_meta_path) as f:
             cache_meta = json.load(f)
 
         if time.time() - cache_meta["timestamp"] < cache_ttl:
             logger.debug(f"Using cached VS manifest from {cache_path}")
-            with open(cache_path, "r") as f:
+            with open(cache_path) as f:
                 return json.load(f), vs_manifest_url, cache_meta.get("hash", "")
 
     # Download the VS manifest
@@ -214,18 +214,18 @@ def _download_vs_manifest(
         # If we have a cache (even if expired), use it as fallback
         if cache and cache_path.exists():
             logger.warning("Using expired VS manifest cache as fallback")
-            with open(cache_path, "r") as f:
+            with open(cache_path) as f:
                 manifest = json.load(f)
             # Try to get cached metadata
             try:
-                with open(cache_meta_path, "r") as meta_f:
+                with open(cache_meta_path) as meta_f:
                     cache_meta = json.load(meta_f)
                     return manifest, vs_manifest_url, cache_meta.get("hash", "")
             except (FileNotFoundError, json.JSONDecodeError):
                 return manifest, vs_manifest_url, ""
 
         # If all else fails, raise a standard exception
-        raise IOError(f"Failed to download VS manifest: {e}") from e
+        raise OSError(f"Failed to download VS manifest: {e}") from e
 
 
 def get_vs_manifest(
@@ -234,7 +234,7 @@ def get_vs_manifest(
     cache: bool = True,
     cache_dir: Path = CACHE_DIR,
     cache_ttl: int = MANIFEST_CACHE_TTL,
-) -> Tuple[Dict[str, Any], Dict[str, str]]:
+) -> tuple[dict[str, Any], dict[str, str]]:
     """
     Get the Visual Studio manifest for the specified channel.
 

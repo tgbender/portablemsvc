@@ -1,7 +1,8 @@
-import pytest
-from pathlib import Path
-import tempfile
 import hashlib
+import tempfile
+from pathlib import Path
+
+import pytest
 import requests
 
 from portablemsvc.download import download_file, download_files
