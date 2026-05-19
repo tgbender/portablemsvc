@@ -230,18 +230,18 @@ Displays for each install:
 
 The `get-path` command outputs the installation root for use in build scripts:
 
-```bash
+```powershell
 # Get path for latest install
-MSVC_ROOT=$(portablemsvc get-path)
+$MSVC_ROOT = portablemsvc get-path
 
 # Get path by lockfile (matches MSVC/SDK versions)
-MSVC_ROOT=$(portablemsvc get-path --lockfile ./portablemsvc.lock)
+$MSVC_ROOT = portablemsvc get-path --lockfile .\portablemsvc.lock
 
 # Get path by install ID
-MSVC_ROOT=$(portablemsvc get-path --id <install_id>)
+$MSVC_ROOT = portablemsvc get-path --id <install_id>
 
 # Use in build
-source "$MSVC_ROOT/activate.cmd"
+& "$MSVC_ROOT\activate.ps1"
 nmake /f Makefile
 ```
 
@@ -259,7 +259,7 @@ For reproducible builds in CI, use a lockfile:
 # Install and generate lockfile (commit this to your repo)
 portablemsvc install --accept-license --output .\msvc
 
-# In CI, install from the lockfile for bit-for-bit reproducibility
+# In CI, install from the lockfile for reproducible package selection
 portablemsvc install-from-lockfile portablemsvc.lock --accept-license
 ```
 
@@ -279,9 +279,10 @@ hashes. Only use lockfiles from repositories and commits you trust.
     PORTABLEMSVC_CACHE: D:\cache\portablemsvc
 # Get the path and use it
 - run: |
-    MSVC_PATH=$(portablemsvc get-path --lockfile portablemsvc.lock)
-    "$MSVC_PATH/activate.cmd" && cargo build --release
-  shell: bash
+    $msvcPath = portablemsvc get-path --lockfile portablemsvc.lock
+    & "$msvcPath\activate.ps1"
+    cargo build --release
+  shell: pwsh
 ```
 
 ## Contributing

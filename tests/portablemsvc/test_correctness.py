@@ -1,8 +1,11 @@
 import json
+import shutil
 import subprocess
 import sys
 from importlib.metadata import version
 from pathlib import Path
+
+import pytest
 
 from portablemsvc import __version__
 from portablemsvc.install import _generate_env_spec, _write_activation_scripts
@@ -35,6 +38,9 @@ def test_package_version_matches_installed_metadata():
 
 def test_powershell_activation_preserves_absolute_paths(tmp_path):
     spec = _write_scripts(tmp_path)
+    powershell = shutil.which("pwsh") or shutil.which("powershell")
+    if powershell is None:
+        pytest.skip("PowerShell is not available")
 
     command = (
         "$InformationPreference='SilentlyContinue'; "
@@ -42,7 +48,7 @@ def test_powershell_activation_preserves_absolute_paths(tmp_path):
         "[Console]::Out.Write($env:PATH)"
     )
     result = subprocess.run(
-        ["pwsh", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+        [powershell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
         check=True,
         capture_output=True,
         text=True,
@@ -75,6 +81,10 @@ def test_registry_update_helpers_restore_scalar_values():
     delete_value = _unregistration_update("new-cl.exe", "new-cl.exe", None)
     assert delete_value.value is None
     assert delete_value.value_type is None
+
+    newer_value = _unregistration_update("newer-cl.exe", "new-cl.exe", "old-cl.exe")
+    assert newer_value.value == "newer-cl.exe"
+    assert newer_value.value_type == REG_SZ
 
 
 def test_registry_update_helpers_remove_only_inserted_path_entries():

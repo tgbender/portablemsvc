@@ -17,14 +17,14 @@ dependencies = [
   "python-msi>=0.0.0b3,<0.1.0",
 ]
 
-[project.scripts]
-portablemsvc = "portablemsvc.cli:app"
-
-[build-system]
-requires = ["uv_build>=0.11.3,<0.12.0"]
-build-backend = "uv_build"
-
-keywords = ["compiler", "environment", "cli"]
+keywords = [
+  "msvc",
+  "visual-studio",
+  "windows-sdk",
+  "compiler",
+  "toolchain",
+  "cli",
+]
 
 license = "MIT"
 license-files = ["LICENSE"]
@@ -41,6 +41,19 @@ classifiers = [
   "Topic :: System :: Systems Administration",
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
+
+[project.urls]
+Homepage = "https://github.com/tgbender/portablemsvc"
+Repository = "https://github.com/tgbender/portablemsvc"
+Issues = "https://github.com/tgbender/portablemsvc/issues"
+Documentation = "https://github.com/tgbender/portablemsvc#readme"
+
+[project.scripts]
+portablemsvc = "portablemsvc.cli:app"
+
+[build-system]
+requires = ["uv_build>=0.11.3,<0.12.0"]
+build-backend = "uv_build"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

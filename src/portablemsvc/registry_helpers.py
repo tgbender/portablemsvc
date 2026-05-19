@@ -217,6 +217,8 @@ def _unregistration_update(
             return _RegistryUpdate(";".join(parts), REG_EXPAND_SZ)
         return _RegistryUpdate(None, None)
 
+    if current != str(entries):
+        return _RegistryUpdate(current, REG_SZ)
     if previous is None:
         return _RegistryUpdate(None, None)
     return _RegistryUpdate(previous, REG_SZ)
@@ -246,6 +248,18 @@ def register_toolchain(install_id: str, install_root: Path) -> None:
     # load the env.json that was written at install time
     spec = json.loads((install_root / "env.json").read_text(encoding="utf-8"))
 
+    lock = FileLock(str(_LOCK_FILE), timeout=_LOCK_TIMEOUT)
+    with lock:
+        state = _load_state()
+        registered = state.get("registered", {})
+        current = state.get("current")
+        if (current and current != install_id) or (
+            registered and install_id not in registered
+        ):
+            raise RuntimeError(
+                "A PortableMSVC toolchain is already registered; unregister it first."
+            )
+
     # 0) back up the user's existing env vars before we mutate them
     _backup_path("Path")  # text backup, easy to copy
     _backup_all_env_vars(install_id, spec)  # JSON backup, complete record
@@ -266,7 +280,6 @@ def register_toolchain(install_id: str, install_root: Path) -> None:
     broadcast_setting_change("Environment")
 
     # 2) record the fact that install_id is now registered
-    lock = FileLock(str(_LOCK_FILE), timeout=_LOCK_TIMEOUT)
     with lock:
         state = _load_state()
         state.setdefault("registered", {})[install_id] = {

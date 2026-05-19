@@ -236,7 +236,11 @@ def register(
     if not install_root:
         typer.echo(f"Error: No install path recorded for ID '{selected_id}'", err=True)
         raise typer.Exit(1)
-    register_toolchain(selected_id, Path(install_root))
+    try:
+        register_toolchain(selected_id, Path(install_root))
+    except RuntimeError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(1) from exc
     typer.echo(f"Registered toolchain {selected_id} into HKCU\\Environment.")
 
 

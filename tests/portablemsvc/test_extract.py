@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 import zipfile
 from pathlib import Path
@@ -11,10 +12,12 @@ from portablemsvc.extract import (
     PyMsiExtractor,
     _extract_msi_file,
     _extract_zip_file,
+    _safe_artifact_name,
     _safe_destination_path,
     _validate_replaceable_output_dir,
     extract_package_files,
 )
+from portablemsvc.lockfile import Lockfile
 from portablemsvc.parse_msi import get_msi_cab_files
 
 
@@ -151,9 +154,82 @@ def test_output_replacement_rejects_arbitrary_non_empty_directory(tmp_path: Path
     assert (output / "important.txt").exists()
 
 
+def test_output_replacement_rejects_directory_with_only_vc_marker(tmp_path: Path):
+    output = tmp_path / "existing"
+    (output / "VC").mkdir(parents=True)
+
+    with pytest.raises(ValueError, match="Refusing to replace non-empty directory"):
+        _validate_replaceable_output_dir(output)
+
+    assert (output / "VC").exists()
+
+
 def test_output_replacement_allows_existing_portablemsvc_install(tmp_path: Path):
     output = tmp_path / "existing"
     output.mkdir()
-    (output / "portablemsvc.lock").write_text("{}", encoding="utf-8")
+    (output / "portablemsvc.lock").write_text(
+        json.dumps({"lockfile_version": "1.0"}),
+        encoding="utf-8",
+    )
 
     _validate_replaceable_output_dir(output)
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "",
+        ".",
+        "..",
+        "nested\\payload.zip",
+        "nested/payload.zip",
+        "..\\payload.zip",
+        "C:\\payload.zip",
+        "payload:stream.zip",
+    ],
+)
+def test_safe_artifact_name_rejects_non_basename_names(name: str):
+    with pytest.raises(ValueError, match="Unsafe package artifact name"):
+        _safe_artifact_name(name)
+
+
+def test_extract_package_files_rejects_unsafe_staged_artifact_name(tmp_path: Path):
+    payload = tmp_path / "payload.zip"
+    payload.write_bytes(b"not used")
+
+    with pytest.raises(ValueError, match="Unsafe package artifact name"):
+        extract_package_files(
+            {"..\\payload.zip": payload},
+            tmp_path / "out",
+            extract_msvc=False,
+            extract_sdk=False,
+        )
+
+
+def test_extract_package_files_accepts_relative_output_with_lockfile(tmp_path: Path):
+    archive = tmp_path / "payload.zip"
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr("Contents/bin/tool.exe", "ok")
+
+    relative_output = Path(os.path.relpath(tmp_path / "relative-out", Path.cwd()))
+    lockfile = Lockfile(channel="release", host="x64", targets=["x64"])
+    lockfile.add_file(
+        file_id="payload",
+        filename=archive.name,
+        url="https://example.invalid/payload.zip",
+        sha256="0" * 64,
+        file_type="zip",
+        package_ref="test",
+    )
+
+    extract_package_files(
+        {archive.name: archive},
+        relative_output,
+        extract_sdk=False,
+        lockfile=lockfile,
+    )
+
+    assert (tmp_path / "relative-out" / "bin" / "tool.exe").read_text() == "ok"
+    entry = lockfile.get_file_entry(archive.name)
+    assert entry is not None
+    assert entry["extracted_paths"] == ["bin\\tool.exe"]

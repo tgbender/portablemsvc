@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 import shutil
@@ -7,7 +8,7 @@ import tempfile
 import zipfile
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Protocol
 
 from plumbum import local
@@ -72,9 +73,30 @@ def _safe_destination_path(destination: Path, relative_path: Path | str) -> Path
     return target
 
 
+def _safe_artifact_name(name: str) -> str:
+    """Return a safe artifact basename for staging downloaded payloads."""
+    path = PureWindowsPath(name)
+    if (
+        path.is_absolute()
+        or path.name != name
+        or name in {"", ".", ".."}
+        or ":" in name
+    ):
+        raise ValueError(f"Unsafe package artifact name: {name!r}")
+    return name
+
+
 def _looks_like_portablemsvc_output(path: Path) -> bool:
-    markers = ("portablemsvc.lock", "env.json", "VC", "Windows Kits")
-    return any((path / marker).exists() for marker in markers)
+    lockfile = path / "portablemsvc.lock"
+    if not lockfile.is_file():
+        return False
+
+    try:
+        lock_data = json.loads(lockfile.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+
+    return lock_data.get("lockfile_version") == "1.0"
 
 
 def _validate_replaceable_output_dir(output_dir: Path) -> None:
@@ -315,6 +337,7 @@ def extract_package_files(
     Extract package files from their cached locations to the output directory.
     Uses a temporary working directory that gets renamed to the final output directory.
     """
+    output_dir = output_dir.resolve()
     # Create a temporary working directory next to the output directory
     import uuid
 
@@ -329,7 +352,8 @@ def extract_package_files(
             # Extract files to the temporary directory
             # 1) Link or copy all cached files into workdir
             for orig_name, cached_path in files_map.items():
-                dst = workdir / orig_name
+                safe_name = _safe_artifact_name(orig_name)
+                dst = workdir / safe_name
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 dst.write_bytes(cached_path.read_bytes())
 
