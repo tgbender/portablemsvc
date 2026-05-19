@@ -1,0 +1,43 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-fix
+        name: ruff fix
+        entry: mise run ruff-fix
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: ruff-format
+        name: ruff format
+        entry: mise run ruff-format
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: taplo-format
+        name: taplo format
+        entry: mise run taplo-format
+        language: system
+        files: \.toml$
+        pass_filenames: false
+
+      - id: prettier-format
+        name: prettier format
+        entry: mise run prettier-format
+        language: system
+        files: \.(md|json|yaml|yml)$
+        pass_filenames: false
+
+      - id: mypy
+        name: mypy
+        entry: mise run mypy
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: trufflehog-scan
+        name: trufflehog scan
+        entry: mise run trufflehog-scan
+        language: system
+        pass_filenames: false

@@ -1,51 +1,73 @@
 [tools]
-# Using latest for tools. use a mise lockfile for reproducibility.
-trufflehog = "latest" # Trusted as it's a widely used tool build by a company that specializes in security
+trufflehog = "latest"
 uv = "latest"
 prek = "latest"
 ruff = "latest"
 bun = "latest"
 taplo = "latest"
-# Windows doesn't currently work with bunx and npm tools. We use bun directly instead
-#"npm:prettier" = "latest"
-#"npm:pyright" = "latest"
 
 [env]
-MISE_NPM_PACKAGE_MANAGER = "bun" # Use bun instead of npm for faster installs
-DO_NOT_TRACK = "1"               # Disable tracking for that respect this variable
+MISE_NPM_PACKAGE_MANAGER = "bun"
+DO_NOT_TRACK = "1"
+PREK_QUIET = "1"
 
 [settings]
 npm.package_manager = "bun"
 windows_default_inline_shell_args = "powershell -NoProfile -Command"
 python.uv_venv_auto = true
+install_before = "3d"
+
+# Keep tool installation cooldowns enabled through mise. JavaScript package
+# cooldowns are configured in bunfig.toml.
 
 ### SETUP TASKS
+[tasks.setup]
+description = "Sync deps and install editable package into venv"
+depends = ["uv-sync-all"]
+run = "uv pip install --editable ."
+
 [tasks.setup-editable]
-description = "setup the python venv and such for development and testing. Will install an editable install of the package into the venv"
+description = "Sync deps and install editable package into venv"
 run = "uv pip install --editable ."
 depends = ["uv-sync-all"]
 
 [tasks.setup-hooks]
-description = "Install pre-commit hooks"
+description = "Install prek git hooks"
 run = "prek install"
 
+[tasks.hooks-run]
+description = "Run all prek hooks against all files"
+run = "prek run --all-files"
+
+[tasks.hooks-update]
+description = "Update prek hook repos"
+run = "prek autoupdate"
+
 [tasks.uv-sync-all]
-description = "Sync Python tools with uv"
+description = "Sync Python deps with uv"
 run = "uv sync --all-extras"
 
-### PRE-COMMIT STUFF
+[tasks.uv-lock-refresh]
+description = "Upgrade and refresh the uv lockfile, excluding packages published in the last 3 days"
+run = "uv lock --upgrade --exclude-newer \"$(date -u -d '3 days ago' +%Y-%m-%dT%H:%M:%SZ)\""
+run_windows = "$cutoff = (Get-Date).ToUniversalTime().AddDays(-3).ToString('yyyy-MM-ddTHH:mm:ssZ'); uv lock --upgrade --exclude-newer $cutoff"
+
+### PRE-COMMIT
 [tasks.trufflehog-scan]
-description = "Scan the git history for secrets using trufflehog. To be used in precommit. Network calls disabled"
+description = "Scan git history for secrets"
 run = "trufflehog git file://. --since-commit=HEAD~1 --no-verification --no-update --fail"
 
 ### LINTERS AND FORMATTERS
+[tasks.check]
+description = "Run non-mutating checks"
+depends = ["lint", "test"]
+
 [tasks.format]
-#aliases = ["fix"]
 description = "Run all auto-fixes and formatting"
 depends = ["ruff-fix", "ruff-format", "prettier-format", "taplo-format"]
 
 [tasks.lint]
-description = "Run all linters/type checks"
+description = "Run all linters and type checks"
 depends = [
   "ruff-check",
   "mypy",
@@ -56,19 +78,19 @@ depends = [
 
 [tasks.ruff-check]
 description = "Check code with ruff"
-run = "ruff check ."
+run = "uvx ruff check ."
 
 [tasks.ruff-fix]
 description = "Auto-fix ruff lint violations"
-run = "ruff check --fix ."
+run = "uvx ruff check --fix ."
 
 [tasks.ruff-format]
-description = "Format code with ruff"
-run = "ruff format ."
+description = "Format Python files with ruff"
+run = "uvx ruff format ."
 
 [tasks.mypy]
 description = "Run mypy type checks"
-run = "uv run mypy ."
+run = "uvx mypy ."
 
 [tasks.pyright-check]
 description = "Run pyright type checks"
@@ -77,13 +99,13 @@ run = "bunx pyright --pythonpath \"{{ config_root }}/.venv/bin/python\" ."
 run_windows = "bunx pyright --pythonpath \"{{ config_root }}/.venv/Scripts/python.exe\" ."
 
 [tasks.prettier-format]
-description = "Format non-Python files (md, toml, json, yaml)"
-run = "git ls-files '*.md' '*.json' '*.yaml' '*.yml' | bunx prettier --write '**/*.{md,json,yaml,yml}'"
+description = "Format Markdown, JSON, and YAML files"
+run = "git ls-files '*.md' '*.json' '*.yaml' '*.yml' | xargs -r bunx prettier --write"
 run_windows = "bunx prettier --write @(git ls-files '*.md' '*.json' '*.yaml' '*.yml')"
 
 [tasks.prettier-check]
-description = "Check non-Python file formatting"
-run = "git ls-files -z '*.md' '*.json' '*.yaml' '*.yml' | xargs -0 bunx prettier --check"
+description = "Check Markdown, JSON, and YAML formatting"
+run = "git ls-files -z '*.md' '*.json' '*.yaml' '*.yml' | xargs -0 -r bunx prettier --check"
 run_windows = "bunx prettier --check @(git ls-files '*.md' '*.json' '*.yaml' '*.yml')"
 
 [tasks.taplo-format]
@@ -96,8 +118,8 @@ run = "taplo fmt --check **/*.toml"
 
 ### TESTS
 [tasks.test]
-description = "Run fast tests (excludes slow_install and integration tests)"
-run = "uv run pytest"
+description = "Run fast tests"
+run = "uv run pytest -q"
 
 [tasks.test-most]
 description = "Run most tests including slow_installs but not network_heavy"
@@ -109,6 +131,7 @@ run = "uv run pytest --run-installs"
 
 ### OTHER
 [tasks.check-venv]
-description = "validate that the python path is correctly set to the venv."
+description = "Verify python resolves inside the project virtualenv"
 dir = "{{ config_root }}"
+run = "case \"$(python -c 'import sys; print(sys.executable)')\" in \"{{ config_root }}\"*) ;; *) echo 'Python not in project venv'; exit 1 ;; esac"
 run_windows = "if (-not ((Get-Command python).Source -like \"*$PWD*\")) { Write-Error 'Python not in venv'; exit 1 }"

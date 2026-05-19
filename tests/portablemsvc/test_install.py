@@ -69,6 +69,8 @@ def test_install_from_lockfile(portablemsvc_exe, lockfile_install_dir: Path):
     """
     if install_state["normal_test_install"] is None:
         pytest.skip("Need normal_test_install first")
+    normal_test_install = install_state["normal_test_install"]
+    assert normal_test_install is not None
 
     data_dir = lockfile_install_dir / "data"
     config_dir = lockfile_install_dir / "config"
@@ -85,7 +87,7 @@ def test_install_from_lockfile(portablemsvc_exe, lockfile_install_dir: Path):
 
     cmd[
         "install-from-lockfile",
-        str(install_state["normal_test_install"]["lockfile"]),
+        str(normal_test_install["lockfile"]),
         "--accept-license",
     ]()
 

@@ -21,7 +21,7 @@ dependencies = [
 portablemsvc = "portablemsvc.cli:app"
 
 [build-system]
-requires = ["uv_build>=0.10.3,<0.11.0"]
+requires = ["uv_build>=0.11.3,<0.12.0"]
 build-backend = "uv_build"
 
 keywords = ["compiler", "environment", "cli"]
@@ -51,6 +51,10 @@ markers = [
   "network_heavy: marks tests that directly download MSVC packages (huge bandwidth, ~10GB)",
 ]
 
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
 [tool.mypy]
 ignore_missing_imports = true
 disable_error_code = ["import-untyped"]
@@ -66,4 +70,5 @@ dev = [
   "pytest>=9.0.0,<10.0.0",
   "pytest-mock>=3.14.0,<4.0.0",
   "mypy>=1.19.1,<2.0.0",
+  "ruff>=0.15.0,<1.0.0",
 ]
