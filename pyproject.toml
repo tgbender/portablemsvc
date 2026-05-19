@@ -1,6 +1,6 @@
 [project]
 name = "portablemsvc"
-version = "0.2.0"
+version = "0.3.0"
 description = "Installs Portable MSVC tools in user space"
 readme = "README.md"
 authors = [{ name = "Travis Bender" }]

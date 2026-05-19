@@ -1,11 +1,12 @@
 # portablemsvc
 
-**PortableMSVC** is a command-line utility for downloading, extracting, and managing a fully portable Microsoft C/C++ toolchain (MSVC + Windows SDK) on Windows—without requiring a full Visual Studio install.
+**PortableMSVC** is a command-line utility for downloading, extracting, and managing a fully portable Microsoft C/C++ toolchain (MSVC + Windows SDK) on Windows, without requiring a full Visual Studio install.
 
 ## Features
 
 - Fetch the latest (or specified) MSVC toolset and Windows SDK from the official Visual Studio release channel
-- Download and extract ZIPs, VSIX, MSI, and embedded CABs via `msiexec` without UI
+- Download and extract ZIPs, VSIX, MSI, and embedded CABs with pure-Python MSI extraction by default
+- Preserve `msiexec` extraction as an explicit fallback path
 - Prune unneeded files (debug symbols, telemetry, etc.) to minimize disk usage
 - Generate `env.json`, `activate.cmd`, `activate.ps1`, and `activate.xsh` for easy environment setup
 - Support for xonsh, PowerShell, and Command Prompt activation
@@ -16,28 +17,36 @@
 ## Requirements
 
 - **Windows 10+**
-- **Python 3.12+**
-  - May work on lower versions but not tested
-- `msiexec.exe` on PATH (standard on Windows)
-- Required Python packages (install via `pip install .` or `pip install -r requirements.txt`):
-  - `plumbum` (CLI framework)
-  - `winregenv` (registry manipulation)
-  - `filelock` (atomic file/registry locking)
+- **Python 3.10+**
+- `msiexec.exe` on PATH only when using `PORTABLEMSVC_MSI_EXTRACTOR=msiexec` or `fallback`
 
 ## Installation
 
 ### Using UV (https://github.com/astral-sh/uv) _Recommended_
 
 ```bat
-uv tool install git+https://github.com/tgbender/portablemsvc@main
+uv tool install portablemsvc
 ```
 
-The UV tool bin directory may need to be added to path
+The UV tool bin directory may need to be added to PATH.
+
+### Without installing
+
+```bat
+uvx portablemsvc --help
+uvx portablemsvc search
+```
+
+### Using pip
+
+```bat
+python -m pip install portablemsvc
+```
 
 ### Alternative: Clone and install locally
 
 ```bat
-git clone https://github.com/your-org/portablemsvc.git
+git clone https://github.com/tgbender/portablemsvc.git
 cd portablemsvc
 pip install .
 ```
@@ -47,6 +56,24 @@ This provides the `portablemsvc` console script on your PATH.
 ## Usage
 
 Run `portablemsvc --help` to view global options and subcommands.
+
+## Microsoft License Terms
+
+PortableMSVC is not affiliated with Microsoft. It downloads MSVC and Windows SDK
+packages from Microsoft's official Visual Studio release channel, and those
+packages remain subject to Microsoft's license terms.
+
+Before installing a toolchain, review the applicable Microsoft terms for your
+use case:
+
+- [Visual Studio license terms directory](https://visualstudio.microsoft.com/license-terms/)
+- [Visual Studio licensing guidance](https://www.microsoft.com/licensing/guidance/Visual-Studio)
+- [Visual Studio redistribution terms](https://learn.microsoft.com/en-us/visualstudio/releases/2026/redistribution)
+
+Passing `--accept-license` means you have reviewed and accept the applicable
+Microsoft terms for the packages PortableMSVC downloads and installs. Do not
+redistribute downloaded packages, cache contents, or extracted toolchains unless
+Microsoft's terms allow it.
 
 ### Subcommands
 
@@ -132,7 +159,7 @@ Displays for each install:
 
 ## Example Workflow
 
-1. **Install** the latest x64 toolchain  
+1. **Install** the latest x64 toolchain
    (you will be prompted to review and accept the Microsoft license terms):
 
    ```bat
@@ -252,8 +279,14 @@ Contributions and issues are welcome!
 
 - Run `mise run lint` to check code style and types
 - Run `mise run test` to run the test suite
+- Run `mise run test-most` before changing installer behavior
 - Keep PRs focused on a single feature or bugfix
 - Add tests for all new behavior
+
+## Publishing
+
+Releases are published from the manual GitHub Actions `release` workflow on the `main` branch.
+The publish job uses PyPI trusted publishing through the `pypi` environment, which requires reviewer approval and a 60 second wait timer before upload.
 
 ## License
 
@@ -261,8 +294,8 @@ This project is MIT-licensed. See [LICENSE](LICENSE) for details.
 
 ## Disclaimer
 
-The MSVC and Windows SDK toolchains downloaded by PortableMSVC remain subject to Microsoft's license terms and conditions.  
-By using this tool to fetch, install, or manage those toolchains, you agree to comply with all applicable Microsoft licensing requirements.
+PortableMSVC is provided as-is. You are responsible for complying with the
+licenses for any Microsoft packages you download, install, use, or redistribute.
 
 ## Acknowledgments
 
@@ -290,14 +323,3 @@ Test coverage includes:
 - Tool version capture (PE file metadata)
 - Environment variable verification
 - Lockfile-based reproducible installs
-
-## TODO
-
-- Verify that `portablemsvc install --target=x64,arm64,arm`
-  - all specified host/target tool directories appear under `VC/Tools/MSVC/.../bin`
-  - correct compiler/linker executables (`cl.exe`, `link.exe`) are present per target
-- Add integration tests covering the `--target=all` shorthand
-- Ensure generated `env.json` and activation scripts include all targets
-- Confirm redistribution DLLs (`msdia140.dll`, debug CRTs) deploy properly per target
-- Exercise cross‐compilation scenarios (e.g. Host=x64 → Target=arm)
-- Automate CI runs on Windows 10 and 11 to catch platform‐specific issues
