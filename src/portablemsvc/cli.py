@@ -12,7 +12,7 @@ from .manifest import get_license_url, get_vs_manifest
 from .parse_manifest import parse_vs_manifest
 
 # setup a sane default logger
-logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
+logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stderr)
 logger = logging.getLogger(__name__)
 
 app = typer.Typer(

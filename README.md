@@ -131,6 +131,10 @@ set PORTABLEMSVC_CACHE=D:\cache\portablemsvc
 portablemsvc install
 ```
 
+Downloaded package payloads are cached by SHA256 so older toolchain versions can
+coexist for lockfile installs. Visual Studio manifests are also retained by
+downloaded content hash, with URL metadata pointing at the latest cached body.
+
 #### List Installed Toolchains
 
 ```bat

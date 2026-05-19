@@ -89,6 +89,8 @@ def install_msvc(
         channel_manifest_hash=source_info["channel_manifest_hash"],
         vs_manifest_url=source_info["vs_manifest_url"],
         vs_manifest_hash=source_info["vs_manifest_hash"],
+        vs_manifest_declared_hash=source_info.get("vs_manifest_declared_hash"),
+        vs_manifest_downloaded_hash=source_info.get("vs_manifest_downloaded_hash"),
     )
 
     parsed = parse_vs_manifest(

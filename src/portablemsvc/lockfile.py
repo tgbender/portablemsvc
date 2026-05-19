@@ -51,6 +51,8 @@ class Lockfile:
         channel_manifest_hash: str,
         vs_manifest_url: str,
         vs_manifest_hash: str,
+        vs_manifest_declared_hash: str | None = None,
+        vs_manifest_downloaded_hash: str | None = None,
     ) -> None:
         """Record the source manifest URLs and hashes."""
         self.data["sources"]["channel_manifest"] = {
@@ -61,6 +63,14 @@ class Lockfile:
             "url": vs_manifest_url,
             "sha256": vs_manifest_hash,
         }
+        if vs_manifest_declared_hash:
+            self.data["sources"]["vs_manifest"]["channel_declared_sha256"] = (
+                vs_manifest_declared_hash
+            )
+        if vs_manifest_downloaded_hash:
+            self.data["sources"]["vs_manifest"]["downloaded_sha256"] = (
+                vs_manifest_downloaded_hash
+            )
 
     def set_resolved_versions(
         self,
