@@ -1,5 +1,4 @@
 import logging
-import shutil
 from pathlib import Path
 from typing import Any
 
@@ -304,8 +303,10 @@ def install_from_lockfile(
     )
     _write_activation_scripts(output_dir, spec)
 
-    # Copy lockfile to output directory
-    shutil.copy2(lockfile_path, output_dir / "portablemsvc.lock")
+    # Write an updated copy of the lockfile that describes this install.
+    lockfile.set_env_spec(spec, output_dir)
+    lockfile.set_install_id(install_result["install_id"])
+    lockfile.write(output_dir / "portablemsvc.lock")
 
     return {
         "already_installed": False,

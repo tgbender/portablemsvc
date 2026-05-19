@@ -5,6 +5,7 @@ import datetime
 import json
 import logging
 from contextlib import suppress
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -171,6 +172,54 @@ def upsert_path_entry(new_dir: str, marker: str) -> None:
 _STATE_FILE = Path(CONFIG_DIR) / "registry_state.json"
 _LOCK_FILE = _STATE_FILE.with_suffix(".lock")
 _LOCK_TIMEOUT = 60  # seconds
+_METADATA_VARS = {"TOOL_VERSIONS"}  # Not environment variables, just debug info.
+
+
+@dataclass
+class _RegistryUpdate:
+    value: str | None
+    value_type: int | None
+
+
+def _split_path_value(value: str) -> list[str]:
+    return [p for p in value.split(";") if p]
+
+
+def _env_vars_for_spec(spec: dict[str, Any]) -> dict[str, Any]:
+    return {var: entries for var, entries in spec.items() if var not in _METADATA_VARS}
+
+
+def _capture_previous_env(spec: dict[str, Any]) -> dict[str, str | None]:
+    previous: dict[str, str | None] = {}
+    for var in _env_vars_for_spec(spec):
+        try:
+            previous[var] = hkcu.get_registry_value("Environment", var).data
+        except RegistryValueNotFoundError:
+            previous[var] = None
+    return previous
+
+
+def _registration_update(current: str, entries: Any) -> _RegistryUpdate:
+    if isinstance(entries, list):
+        parts = [p for p in _split_path_value(current) if p not in entries]
+        return _RegistryUpdate(";".join(entries + parts), REG_EXPAND_SZ)
+    return _RegistryUpdate(str(entries), REG_SZ)
+
+
+def _unregistration_update(
+    current: str,
+    entries: Any,
+    previous: str | None = None,
+) -> _RegistryUpdate:
+    if isinstance(entries, list):
+        parts = [p for p in _split_path_value(current) if p not in entries]
+        if parts:
+            return _RegistryUpdate(";".join(parts), REG_EXPAND_SZ)
+        return _RegistryUpdate(None, None)
+
+    if previous is None:
+        return _RegistryUpdate(None, None)
+    return _RegistryUpdate(previous, REG_SZ)
 
 
 def _load_state() -> dict[str, Any]:
@@ -200,28 +249,18 @@ def register_toolchain(install_id: str, install_root: Path) -> None:
     # 0) back up the user's existing env vars before we mutate them
     _backup_path("Path")  # text backup, easy to copy
     _backup_all_env_vars(install_id, spec)  # JSON backup, complete record
+    previous_env = _capture_previous_env(spec)
 
     # 1) apply each variable exactly as specced
-    # Skip metadata fields that shouldn't be environment variables
-    metadata_vars = {"TOOL_VERSIONS"}  # Not an env var, just debug info
-    for var, entries in spec.items():
-        if var in metadata_vars:
-            continue
-        if isinstance(entries, list):
-            # merge new list entries into front of the existing PATH-style var
-            try:
-                raw = hkcu.get_registry_value("Environment", var).data or ""
-            except RegistryValueNotFoundError:
-                raw = ""
-            parts = [p for p in raw.split(";") if p and p not in entries]
-            new_val = ";".join(entries + parts)
-            hkcu.put_registry_value(
-                "Environment", var, new_val, value_type=REG_EXPAND_SZ
-            )
-        else:
-            # scalar var → overwrite entirely
-            new_val = str(entries)
-            hkcu.put_registry_value("Environment", var, new_val, value_type=REG_SZ)
+    for var, entries in _env_vars_for_spec(spec).items():
+        try:
+            raw = hkcu.get_registry_value("Environment", var).data or ""
+        except RegistryValueNotFoundError:
+            raw = ""
+        update = _registration_update(raw, entries)
+        hkcu.put_registry_value(
+            "Environment", var, update.value or "", value_type=update.value_type
+        )
 
     # notify all processes once
     broadcast_setting_change("Environment")
@@ -230,9 +269,10 @@ def register_toolchain(install_id: str, install_root: Path) -> None:
     lock = FileLock(str(_LOCK_FILE), timeout=_LOCK_TIMEOUT)
     with lock:
         state = _load_state()
-        state.setdefault("registered", {})[install_id] = str(
-            Path(install_root).resolve()
-        )
+        state.setdefault("registered", {})[install_id] = {
+            "path": str(Path(install_root).resolve()),
+            "previous_env": previous_env,
+        }
         # mark this one as the “current” registration
         state["current"] = install_id
         _save_state(state)
@@ -246,13 +286,22 @@ def unregister_toolchain(install_id: str) -> None:
     lock = FileLock(str(_LOCK_FILE), timeout=_LOCK_TIMEOUT)
     with lock:
         state = _load_state()
-        install_root = state.get("registered", {}).pop(install_id, None)
+        record = state.get("registered", {}).pop(install_id, None)
         # if it was the “current” one, clear that too
         if state.get("current") == install_id:
             state.pop("current", None)
         _save_state(state)
 
     # nothing to do if it was never registered
+    if not record:
+        return
+    if isinstance(record, dict):
+        install_root = record.get("path")
+        previous_env = record.get("previous_env", {})
+    else:
+        # Backward compatibility with older registry_state.json records.
+        install_root = record
+        previous_env = {}
     if not install_root:
         return
 
@@ -260,20 +309,17 @@ def unregister_toolchain(install_id: str) -> None:
     spec = json.loads((Path(install_root) / "env.json").read_text(encoding="utf-8"))
 
     # remove exactly those entries
-    for var, entries in spec.items():
+    for var, entries in _env_vars_for_spec(spec).items():
         try:
             raw = hkcu.get_registry_value("Environment", var).data or ""
         except RegistryValueNotFoundError:
             continue
-        parts = [p for p in raw.split(";") if p and p not in entries]
-        new_val = ";".join(parts)
-        if parts:
-            # update with remaining entries
+        update = _unregistration_update(raw, entries, previous_env.get(var))
+        if update.value is not None:
             hkcu.put_registry_value(
-                "Environment", var, new_val, value_type=REG_EXPAND_SZ
+                "Environment", var, update.value, value_type=update.value_type
             )
         else:
-            # nothing left → delete the registry value entirely
             with suppress(RegistryValueNotFoundError, RegistryError):
                 hkcu.delete_registry_value("Environment", var)
 

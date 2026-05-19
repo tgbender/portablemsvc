@@ -91,6 +91,8 @@ def test_install_from_lockfile(portablemsvc_exe, lockfile_install_dir: Path):
     ]()
 
     install_path = next(data_dir.glob("msvc-*_sdk-*"))
+    lockfile = install_path / "portablemsvc.lock"
+    assert lockfile.exists()
 
     # Verify env.json was created
     env_json = install_path / "env.json"
@@ -103,6 +105,7 @@ def test_install_from_lockfile(portablemsvc_exe, lockfile_install_dir: Path):
         "config_dir": config_dir,
         "temp_dir": temp_dir,
         "install_path": install_path,
+        "lockfile": lockfile,
         "env": {
             "PORTABLEMSVC_DATA": str(data_dir),
             "PORTABLEMSVC_CONFIG": str(config_dir),

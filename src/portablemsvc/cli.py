@@ -26,6 +26,9 @@ def main(
     verbose: bool = typer.Option(False, "-v", "--verbose", help="Enable debug logging"),
 ) -> None:
     """portable-msvc: manage, list and install MSVC toolchains."""
+    if not sys.platform.startswith("win32"):
+        typer.echo("Error: portablemsvc only works on Windows", err=True)
+        raise typer.Exit(1)
     if verbose:
         logging.getLogger().setLevel(logging.DEBUG)
 

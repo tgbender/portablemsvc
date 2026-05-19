@@ -1,5 +1,6 @@
-import sys
+from importlib.metadata import PackageNotFoundError, version
 
-if not sys.platform.startswith("win32"):
-    print("Error: portable-msvc only works on Windows", file=sys.stderr)
-    sys.exit(1)
+try:
+    __version__ = version("portablemsvc")
+except PackageNotFoundError:
+    __version__ = "0+unknown"

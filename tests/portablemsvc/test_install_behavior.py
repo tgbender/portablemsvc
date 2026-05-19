@@ -49,6 +49,19 @@ def test_normal_install_has_lockfile(normal_test_install):
 
 
 @pytest.mark.cli
+def test_lockfile_install_rewrites_output_lockfile(lockfile_test_install):
+    """Lockfile install should write metadata for the new install."""
+    lockfile_path = lockfile_test_install["lockfile"]
+    assert lockfile_path.exists()
+
+    lock_data = json.loads(lockfile_path.read_text())
+    assert lock_data["install_id"]
+    assert lock_data["env_spec"]
+    assert lock_data["env_spec"]["CC"]
+    assert lock_data["resolved"]["msvc"]["vctools_version"]
+
+
+@pytest.mark.cli
 def test_lockfile_install_matches_original(normal_test_install, lockfile_test_install):
     """Lockfile install should have same core files as original."""
     normal_path = normal_test_install["install_path"]
