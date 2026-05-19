@@ -76,12 +76,7 @@ def _safe_destination_path(destination: Path, relative_path: Path | str) -> Path
 def _safe_artifact_name(name: str) -> str:
     """Return a safe artifact basename for staging downloaded payloads."""
     path = PureWindowsPath(name)
-    if (
-        path.is_absolute()
-        or path.name != name
-        or name in {"", ".", ".."}
-        or ":" in name
-    ):
+    if path.is_absolute() or path.name != name or name in {"", ".", ".."} or ":" in name:
         raise ValueError(f"Unsafe package artifact name: {name!r}")
     return name
 
@@ -149,8 +144,7 @@ def _created_paths_around_extraction(
         )
 
     logger.info(
-        f"{extractor_name} extraction successful: "
-        f"{len(new_files)} new files from {msi_path.name}"
+        f"{extractor_name} extraction successful: {len(new_files)} new files from {msi_path.name}"
     )
     return new_files
 
@@ -175,15 +169,11 @@ class PyMsiExtractor:
                 self._extract_root(msi.root, destination)
 
         try:
-            return _created_paths_around_extraction(
-                "pymsi", msi_path, destination, run_pymsi
-            )
+            return _created_paths_around_extraction("pymsi", msi_path, destination, run_pymsi)
         except MsiExtractionError:
             raise
         except Exception as exc:
-            raise MsiExtractionError(
-                f"pymsi extraction failed for {msi_path.name}: {exc}"
-            ) from exc
+            raise MsiExtractionError(f"pymsi extraction failed for {msi_path.name}: {exc}") from exc
 
     def _extract_root(self, root, output: Path, is_root: bool = True) -> None:
         output.mkdir(parents=True, exist_ok=True)
@@ -204,9 +194,7 @@ class PyMsiExtractor:
                     folder_name = child.id.split(".", 1)[0]
                 elif child.id in SYSTEM_FOLDER_PROPERTIES:
                     folder_name = "."
-            self._extract_root(
-                child, _safe_destination_path(output, folder_name), False
-            )
+            self._extract_root(child, _safe_destination_path(output, folder_name), False)
 
 
 class MsiexecMsiExtractor:
@@ -229,9 +217,7 @@ class MsiexecMsiExtractor:
                 "msiexec",
                 msi_path,
                 destination,
-                lambda: msiexec[
-                    "/a", str(msi_path), "/quiet", "/qn", f"TARGETDIR={target_dir}"
-                ](),
+                lambda: msiexec["/a", str(msi_path), "/quiet", "/qn", f"TARGETDIR={target_dir}"](),
             )
         except ProcessExecutionError as e:
             raise MsiExtractionError(
@@ -254,8 +240,7 @@ class FallbackMsiExtractor:
             return self.primary.extract(msi_path, destination)
         except MsiExtractionError as exc:
             logger.warning(
-                f"Primary MSI extractor failed for {msi_path.name}; "
-                f"falling back to msiexec: {exc}"
+                f"Primary MSI extractor failed for {msi_path.name}; falling back to msiexec: {exc}"
             )
             return self.fallback.extract(msi_path, destination)
 
@@ -270,9 +255,7 @@ def default_msi_extractor() -> MsiExtractor:
     if requested == "fallback":
         return FallbackMsiExtractor(PyMsiExtractor(), MsiexecMsiExtractor())
     if requested and requested not in {"auto", "fallback"}:
-        logger.warning(
-            f"Unknown PORTABLEMSVC_MSI_EXTRACTOR={requested!r}; using pymsi"
-        )
+        logger.warning(f"Unknown PORTABLEMSVC_MSI_EXTRACTOR={requested!r}; using pymsi")
     return PyMsiExtractor()
 
 
@@ -377,9 +360,7 @@ def extract_package_files(
 
                 # (Optional) gather CAB filenames
                 cab_names = {
-                    cab
-                    for msi in msi_list
-                    for cab in _get_msi_cab_files(msi.read_bytes())
+                    cab for msi in msi_list for cab in _get_msi_cab_files(msi.read_bytes())
                 }
                 logger.debug(f"Found CABs in MSIs: {cab_names}")
 
@@ -409,9 +390,7 @@ def extract_package_files(
             shutil.rmtree(output_dir)
 
         # Rename the temporary directory to the final output directory
-        logger.info(
-            f"Renaming temporary directory to final output directory: {output_dir}"
-        )
+        logger.info(f"Renaming temporary directory to final output directory: {output_dir}")
         temp_output_dir.rename(output_dir)
 
     except Exception as e:

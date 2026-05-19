@@ -68,9 +68,7 @@ class Lockfile:
                 vs_manifest_declared_hash
             )
         if vs_manifest_downloaded_hash:
-            self.data["sources"]["vs_manifest"]["downloaded_sha256"] = (
-                vs_manifest_downloaded_hash
-            )
+            self.data["sources"]["vs_manifest"]["downloaded_sha256"] = vs_manifest_downloaded_hash
 
     def set_resolved_versions(
         self,
@@ -140,9 +138,7 @@ class Lockfile:
         if entry:
             entry["extracted_paths"].append(str(extracted_path))
             # Track extraction sequence if not already recorded for this file
-            if filename not in [
-                s["filename"] for s in self.data["extraction_sequence"]
-            ]:
+            if filename not in [s["filename"] for s in self.data["extraction_sequence"]]:
                 self._extraction_order += 1
                 self.data["extraction_sequence"].append(
                     {
@@ -156,9 +152,7 @@ class Lockfile:
         """Record a file or directory that was removed during cleanup."""
         self.data["removed_files"].append(str(path))
 
-    def set_env_spec(
-        self, spec: dict[str, Any], install_root: Path | None = None
-    ) -> None:
+    def set_env_spec(self, spec: dict[str, Any], install_root: Path | None = None) -> None:
         """Record the environment specification with portable paths.
 
         Args:

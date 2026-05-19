@@ -89,13 +89,9 @@ def _stream_download(
             headers = {}
             if downloaded > 0:
                 headers["Range"] = f"bytes={downloaded}-"
-                logger.info(
-                    f"Resuming download of {original_name} from byte {downloaded}"
-                )
+                logger.info(f"Resuming download of {original_name} from byte {downloaded}")
 
-            response = requests.get(
-                url, stream=True, timeout=DEFAULT_TIMEOUT, headers=headers
-            )
+            response = requests.get(url, stream=True, timeout=DEFAULT_TIMEOUT, headers=headers)
             response.raise_for_status()
 
             # Handle resume vs full content
@@ -205,9 +201,7 @@ def _download_file(
             # Continue to download as the cached file is invalid
 
     # Download the file and calculate hash as we go
-    data_bytes, actual_hash = _stream_download(
-        url, original_name, max_retries, base_wait_time
-    )
+    data_bytes, actual_hash = _stream_download(url, original_name, max_retries, base_wait_time)
 
     # Verify hash
     if actual_hash != expected_hash:
@@ -273,9 +267,7 @@ class DownloadManager:
             except OSError as e:
                 logger.error(f"Failed to remove stale lock file: {e}")
 
-    def download(
-        self, url: str, expected_hash: str, original_name: str
-    ) -> tuple[bytes, Path]:
+    def download(self, url: str, expected_hash: str, original_name: str) -> tuple[bytes, Path]:
         data, path, updated = _download_file(
             url,
             expected_hash,
@@ -300,9 +292,7 @@ class DownloadManager:
 
                     for hash_val, names in self.hash_to_names.items():
                         if hash_val in current_map:
-                            current_map[hash_val] = list(
-                                set(current_map[hash_val] + names)
-                            )
+                            current_map[hash_val] = list(set(current_map[hash_val] + names))
                         else:
                             current_map[hash_val] = names
 
@@ -311,9 +301,7 @@ class DownloadManager:
                 logger.error("Could not acquire lock to save hash map updates")
                 _save_hash_map(self.hash_map_file, self.hash_to_names)
 
-        logger.info(
-            f"Total downloaded: {self.total_download_size / (1024 * 1024):.2f} MB"
-        )
+        logger.info(f"Total downloaded: {self.total_download_size / (1024 * 1024):.2f} MB")
 
 
 def download_file(

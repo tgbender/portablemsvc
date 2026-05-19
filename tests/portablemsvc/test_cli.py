@@ -37,9 +37,7 @@ def test_windows_sdk_headers_system_install(system_install, tmp_path):
 
     test_c = tmp_path / "test_win.c"
     test_c.write_text(
-        "#include <windows.h>\n"
-        "#include <stdio.h>\n"
-        'int main(){printf("WIN_OK");return 0;}'
+        '#include <windows.h>\n#include <stdio.h>\nint main(){printf("WIN_OK");return 0;}'
     )
 
     new_path = ";".join(env["PATH"]) + ";" + local.env["PATH"]
@@ -144,9 +142,7 @@ def test_compile_cpp_with_system_install(system_install, tmp_path):
     env = json.loads((system_install["install_path"] / "env.json").read_text())
 
     test_cpp = tmp_path / "test.cpp"
-    test_cpp.write_text(
-        '#include <iostream>\nint main(){std::cout << "CPP_OK";return 0;}'
-    )
+    test_cpp.write_text('#include <iostream>\nint main(){std::cout << "CPP_OK";return 0;}')
 
     new_path = ";".join(env["PATH"]) + ";" + local.env["PATH"]
     cl = local[env["CXX"]].with_env(
@@ -228,9 +224,7 @@ def test_compile_with_windows_headers(system_install, tmp_path):
 
     test_c = tmp_path / "test_win.c"
     test_c.write_text(
-        "#include <windows.h>\n"
-        "#include <stdio.h>\n"
-        'int main(){printf("WIN_OK");return 0;}'
+        '#include <windows.h>\n#include <stdio.h>\nint main(){printf("WIN_OK");return 0;}'
     )
 
     new_path = ";".join(env["PATH"]) + ";" + local.env["PATH"]

@@ -109,9 +109,7 @@ def normal_test_install():
 def lockfile_test_install():
     """Session-scoped install from test_install_from_lockfile."""
     if install_state["lockfile_test_install"] is None:
-        pytest.skip(
-            "Lockfile test install not created. Run test_install_from_lockfile first."
-        )
+        pytest.skip("Lockfile test install not created. Run test_install_from_lockfile first.")
     return install_state["lockfile_test_install"]
 
 

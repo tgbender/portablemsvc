@@ -74,9 +74,7 @@ def search(
         "release", "--channel", help="Which channel to query (release|preview)"
     ),
     no_cache: bool = typer.Option(False, "--no-cache", help="Disable manifest cache"),
-    full: bool = typer.Option(
-        False, "--full", help="Show full MSVC x.y.z.w build versions"
-    ),
+    full: bool = typer.Option(False, "--full", help="Show full MSVC x.y.z.w build versions"),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
 ) -> None:
     """Search available MSVC and Windows SDK versions."""
@@ -143,9 +141,7 @@ def install(
         False, "--accept-license", help="Automatically accept license"
     ),
     no_cache: bool = typer.Option(False, "--no-cache", help="Disable downloads cache"),
-    host: str = typer.Option(
-        DEFAULT_HOST, "--host", help=f"Host arch ({','.join(ALL_HOSTS)})"
-    ),
+    host: str = typer.Option(DEFAULT_HOST, "--host", help=f"Host arch ({','.join(ALL_HOSTS)})"),
     target: list[str] = typer.Option(
         [], "--target", help=f"Target archs ({','.join(ALL_TARGETS)})"
     ),
@@ -212,9 +208,7 @@ def register(
 
     installs = get_installed_versions()
     if not installs:
-        typer.echo(
-            "Error: No installations are recorded; nothing to register.", err=True
-        )
+        typer.echo("Error: No installations are recorded; nothing to register.", err=True)
         raise typer.Exit(1)
 
     selected_id = install_id
@@ -268,9 +262,7 @@ def unregister(
             state = _load_state()
         iid = state.get("current")
         if not iid:
-            typer.echo(
-                "Error: No current registration found; please specify --id", err=True
-            )
+            typer.echo("Error: No current registration found; please specify --id", err=True)
             raise typer.Exit(1)
 
     unregister_toolchain(iid)
@@ -311,9 +303,7 @@ def install_from_lockfile(
 
 @app.command("get-path")
 def get_path(
-    install_id: str | None = typer.Option(
-        None, "--id", help="Installation ID (omit for latest)"
-    ),
+    install_id: str | None = typer.Option(None, "--id", help="Installation ID (omit for latest)"),
     lockfile: str | None = typer.Option(
         None, "--lockfile", help="Path to portablemsvc.lock to find matching install"
     ),
@@ -384,15 +374,11 @@ def get_path(
 
 @app.command("get-activate")
 def get_activate(
-    install_id: str | None = typer.Option(
-        None, "--id", help="Installation ID (omit for latest)"
-    ),
+    install_id: str | None = typer.Option(None, "--id", help="Installation ID (omit for latest)"),
     lockfile: str | None = typer.Option(
         None, "--lockfile", help="Path to portablemsvc.lock to find matching install"
     ),
-    shell: str = typer.Option(
-        "auto", "--shell", help="Shell type (auto|cmd|powershell|ps|xonsh)"
-    ),
+    shell: str = typer.Option("auto", "--shell", help="Shell type (auto|cmd|powershell|ps|xonsh)"),
 ) -> None:
     """Output the activation command for the specified toolchain."""
     import logging

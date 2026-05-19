@@ -21,9 +21,7 @@ logger = logging.getLogger(__name__)
 __all__ = ["get_available_versions", "install_msvc", "install_from_lockfile"]
 
 
-def get_available_versions(
-    *, channel: str = "release", cache: bool = True
-) -> dict[str, list[str]]:
+def get_available_versions(*, channel: str = "release", cache: bool = True) -> dict[str, list[str]]:
     """
     Return dict with 'msvc' and 'sdk' listing the available versions
     for the given channel.
@@ -138,9 +136,7 @@ def install_msvc(
     # 4) scan MSIs for CABS & download those too
     sdk_info = parsed["selected_sdk"]["package_info"]
     cab_payloads = parse_msi_for_cabs(files_map, sdk_info, lockfile=lockfile)
-    cab_downloads = download_files(
-        cab_payloads, cache_dir=Path(CACHE_DIR), lockfile=lockfile
-    )
+    cab_downloads = download_files(cab_payloads, cache_dir=Path(CACHE_DIR), lockfile=lockfile)
 
     all_files = {**files_map, **cab_downloads}
 

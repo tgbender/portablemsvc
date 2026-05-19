@@ -35,9 +35,7 @@ def get_msvc_packages(msvc_full_ver, host, targets):
 
             # Redist packages
             redist_suffix = ".onecore.desktop" if target == "arm" else ""
-            redist_pkg = (
-                f"microsoft.vc.{msvc_full_ver}.crt.redist.{target}{redist_suffix}.base"
-            )
+            redist_pkg = f"microsoft.vc.{msvc_full_ver}.crt.redist.{target}{redist_suffix}.base"
             msvc_packages.append(redist_pkg)
 
         return msvc_packages
@@ -94,9 +92,7 @@ def resolve_redist_packages(packages, msvc_packages, msvc_full_ver, targets):
             for target in targets:
                 redist_suffix = ".onecore.desktop" if target == "arm" else ""
                 if f".{target}{redist_suffix}." in pkg_lower:
-                    redist_name = (
-                        f"microsoft.visualcpp.crt.redist.{target}{redist_suffix}"
-                    )
+                    redist_name = f"microsoft.visualcpp.crt.redist.{target}{redist_suffix}"
                     if redist_name.lower() in packages:
                         redist = _first(packages[redist_name.lower()])
                         if redist and "dependencies" in redist:

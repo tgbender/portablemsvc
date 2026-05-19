@@ -253,9 +253,7 @@ def register_toolchain(install_id: str, install_root: Path) -> None:
         state = _load_state()
         registered = state.get("registered", {})
         current = state.get("current")
-        if (current and current != install_id) or (
-            registered and install_id not in registered
-        ):
+        if (current and current != install_id) or (registered and install_id not in registered):
             raise RuntimeError(
                 "A PortableMSVC toolchain is already registered; unregister it first."
             )
@@ -329,9 +327,7 @@ def unregister_toolchain(install_id: str) -> None:
             continue
         update = _unregistration_update(raw, entries, previous_env.get(var))
         if update.value is not None:
-            hkcu.put_registry_value(
-                "Environment", var, update.value, value_type=update.value_type
-            )
+            hkcu.put_registry_value("Environment", var, update.value, value_type=update.value_type)
         else:
             with suppress(RegistryValueNotFoundError, RegistryError):
                 hkcu.delete_registry_value("Environment", var)

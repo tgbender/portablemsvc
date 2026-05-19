@@ -43,9 +43,7 @@ def parse_msi_for_cabs(
     payloads = sdk_pkg_info.get("payloads", [])
 
     # Create lookup of payloads by filename (case-insensitive)
-    payload_lookup = {
-        Path(p["fileName"]).name.lower(): p for p in payloads if "fileName" in p
-    }
+    payload_lookup = {Path(p["fileName"]).name.lower(): p for p in payloads if "fileName" in p}
 
     for fname, path in files_map.items():
         if not fname.lower().endswith(".msi"):

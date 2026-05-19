@@ -52,9 +52,7 @@ def _find_sdk_versions(packages):
     """Find all SDK versions in the package dictionary."""
     sdk_versions = {}
     for pid in packages:
-        if pid.startswith(WIN10_SDK_PREFIX.lower()) or pid.startswith(
-            WIN11_SDK_PREFIX.lower()
-        ):
+        if pid.startswith(WIN10_SDK_PREFIX.lower()) or pid.startswith(WIN11_SDK_PREFIX.lower()):
             try:
                 pver = pid.split(".")[-1]
                 if pver.isnumeric():
@@ -158,9 +156,7 @@ def _validate_manifest_ver(msvc_versions, msvc_ver):
             return package_ver
         except KeyError as exc:
             logger.error(f"MSVC toolset version {msvc_ver} not found in manifest")
-            raise ValueError(
-                f"MSVC toolset version {msvc_ver} not found in manifest"
-            ) from exc
+            raise ValueError(f"MSVC toolset version {msvc_ver} not found in manifest") from exc
     elif num_periods == 3:
         for value in msvc_versions.values():
             test_value = ".".join(value.split(".")[2:6])
@@ -221,9 +217,7 @@ def parse_vs_manifest(
         selected_sdk = _select_sdk_version(sdk_versions, sdk_version)
 
         # Get package lists
-        msvc_packages = get_msvc_packages(
-            selected_msvc["package_version"], host, targets
-        )
+        msvc_packages = get_msvc_packages(selected_msvc["package_version"], host, targets)
         sdk_packages = get_sdk_packages(targets)
 
         # Resolve redist package dependencies
@@ -246,9 +240,7 @@ def parse_vs_manifest(
                 logger.warning(f"{pkg} ... !!! MISSING !!!")
                 continue
 
-            p = _first(
-                packages[pkg_lower], lambda p: p.get("language") in (None, "en-US")
-            )
+            p = _first(packages[pkg_lower], lambda p: p.get("language") in (None, "en-US"))
             if p and "payloads" in p:
                 for payload in p["payloads"]:
                     filename = payload["fileName"]
@@ -268,8 +260,9 @@ def parse_vs_manifest(
                 expected_filename = f"Installers\\{pkg}"
                 payload = _first(
                     sdk_pkg_info["payloads"],
-                    lambda p, expected_filename=expected_filename: p["fileName"]
-                    == expected_filename,
+                    lambda p, expected_filename=expected_filename: (
+                        p["fileName"] == expected_filename
+                    ),
                 )
                 if payload:
                     filename = pkg

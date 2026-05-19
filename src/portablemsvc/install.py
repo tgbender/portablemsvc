@@ -156,9 +156,7 @@ def _setup_msdia140(output_dir: Path, msvc_version: str, host: str, targets: lis
     shutil.rmtree(output_dir / "DIA%20SDK")
 
 
-def _setup_debug_crt(
-    output_dir: Path, msvc_version: str, host: str, targets: list[str]
-):
+def _setup_debug_crt(output_dir: Path, msvc_version: str, host: str, targets: list[str]):
     """
     Place debug CRT runtime files into MSVC bin folder.
 
@@ -180,13 +178,7 @@ def _setup_debug_crt(
             target_src = src / target
             if target_src.exists():
                 for f in target_src.glob("**/*.dll"):
-                    dst = (
-                        output_dir
-                        / "VC/Tools/MSVC"
-                        / msvc_version
-                        / f"bin/Host{host}"
-                        / target
-                    )
+                    dst = output_dir / "VC/Tools/MSVC" / msvc_version / f"bin/Host{host}" / target
                     dst.mkdir(parents=True, exist_ok=True)
                     f.replace(dst / f.name)
 
@@ -258,9 +250,7 @@ set LIB={setup_lib}
         (output_dir / f"setup_{target}.bat").write_text(setup_content)
 
 
-def _detect_msvc_vctools_version(
-    output_dir: Path, host: str, primary_target: str
-) -> str:
+def _detect_msvc_vctools_version(output_dir: Path, host: str, primary_target: str) -> str:
     """
     Detect the actual on-disk VCToolsVersion by scanning VC/Tools/MSVC/.
 
@@ -277,9 +267,7 @@ def _detect_msvc_vctools_version(
         reverse=True,
     )
     for d in dirs:
-        if (d / "include").exists() and (
-            d / f"bin/Host{host}/{primary_target}/cl.exe"
-        ).exists():
+        if (d / "include").exists() and (d / f"bin/Host{host}/{primary_target}/cl.exe").exists():
             return d.name
     raise ValueError(
         f"Cannot detect VCToolsVersion: no directory under {msvc_path} "
@@ -352,15 +340,11 @@ def install_msvc_components(
     # Perform installation steps
     _setup_debug_crt(output_dir, actual_vctools, host, targets)
     _setup_msdia140(output_dir, actual_vctools, host, targets)
-    _cleanup_unnecessary_files(
-        output_dir, actual_vctools, actual_sdk_ver, host, targets, lockfile
-    )
+    _cleanup_unnecessary_files(output_dir, actual_vctools, actual_sdk_ver, host, targets, lockfile)
     _create_setup_batch_files(output_dir, actual_vctools, actual_sdk_ver, host, targets)
 
     # Collect tool versions (guarded with timeout)
-    tool_versions = _collect_tool_versions(
-        output_dir, actual_vctools, host, targets, lockfile
-    )
+    tool_versions = _collect_tool_versions(output_dir, actual_vctools, host, targets, lockfile)
 
     # Save installation record
     install_id = save_installed_version(
@@ -404,9 +388,7 @@ def _collect_tool_versions(
         logger.debug("pefile not available, skipping tool version collection")
         return {}
 
-    msvc_bin_root = (
-        output_dir / "VC" / "Tools" / "MSVC" / msvc_version / f"bin/Host{host}"
-    )
+    msvc_bin_root = output_dir / "VC" / "Tools" / "MSVC" / msvc_version / f"bin/Host{host}"
     primary_tgt = targets[0] if targets else host
     msvc_bin = msvc_bin_root / primary_tgt
 
@@ -445,9 +427,7 @@ def _collect_tool_versions(
             pe = pefile.PE(str(tool_path), fast_load=True)
             try:
                 pe.parse_data_directories(
-                    directories=[
-                        pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_RESOURCE"]
-                    ]
+                    directories=[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_RESOURCE"]]
                 )
 
                 if hasattr(pe, "FileInfo") and pe.FileInfo:
@@ -492,12 +472,7 @@ def _generate_env_spec(
     """
     install_root = install_root.resolve()
     msvc_bin_root = (
-        install_root
-        / "VC"
-        / "Tools"
-        / "MSVC"
-        / msvc_vctools_version
-        / f"bin/Host{host}"
+        install_root / "VC" / "Tools" / "MSVC" / msvc_vctools_version / f"bin/Host{host}"
     )
     # Pick a primary target for CC/CXX/AR; first requested, or host as fallback
     primary_tgt = targets[0] if targets else host
@@ -523,9 +498,7 @@ def _generate_env_spec(
         # classic VS variable pointing at VC root
         "VCINSTALLDIR": str(install_root / "VC") + "\\",
         # legacy compatibility variables
-        "VCToolsInstallDir": str(
-            install_root / "VC" / "Tools" / "MSVC" / msvc_vctools_version
-        )
+        "VCToolsInstallDir": str(install_root / "VC" / "Tools" / "MSVC" / msvc_vctools_version)
         + "\\",
         "WindowsSDKDir": str(install_root / "Windows Kits" / "10") + "\\",
     }
@@ -549,9 +522,7 @@ def _generate_env_spec(
                     if crt_dir.is_dir():
                         path_entries.append(str(crt_dir))
 
-    path_entries.append(
-        str(install_root / "Windows Kits" / "10" / "bin" / sdk_version / host)
-    )
+    path_entries.append(str(install_root / "Windows Kits" / "10" / "bin" / sdk_version / host))
     path_entries.append(
         str(install_root / "Windows Kits" / "10" / "bin" / sdk_version / host / "ucrt")
     )
@@ -570,25 +541,9 @@ def _generate_env_spec(
     lib_entries: list[str] = []
     for tgt in targets:
         lib_entries += [
-            str(
-                install_root
-                / "VC"
-                / "Tools"
-                / "MSVC"
-                / msvc_vctools_version
-                / "lib"
-                / tgt
-            ),
+            str(install_root / "VC" / "Tools" / "MSVC" / msvc_vctools_version / "lib" / tgt),
             *(
-                str(
-                    install_root
-                    / "Windows Kits"
-                    / "10"
-                    / "Lib"
-                    / sdk_version
-                    / sub
-                    / tgt
-                )
+                str(install_root / "Windows Kits" / "10" / "Lib" / sdk_version / sub / tgt)
                 for sub in ["ucrt", "um"]
             ),
         ]
@@ -605,9 +560,7 @@ def _generate_env_spec(
     return spec
 
 
-def _write_activation_scripts(
-    install_root: Path, spec: dict[str, Any] | None = None
-) -> None:
+def _write_activation_scripts(install_root: Path, spec: dict[str, Any] | None = None) -> None:
     """
     Emit activate.cmd and activate.ps1 under install_root,
     reading env.json if spec is None.
@@ -651,9 +604,7 @@ def _write_activation_scripts(
         joined = ";".join(entries) + f";%{var}%"
         cmd.append(f'set "{var}={joined}"')
     cmd.append("echo MSVC %VCToolsVersion% / SDK %WindowsSDKVersion% activated.")
-    (install_root / "activate.cmd").write_text(
-        "\r\n".join(cmd) + "\r\n", encoding="utf-8"
-    )
+    (install_root / "activate.cmd").write_text("\r\n".join(cmd) + "\r\n", encoding="utf-8")
 
     # --- activate.ps1 ---
     ps = [

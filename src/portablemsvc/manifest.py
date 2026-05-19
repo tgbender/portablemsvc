@@ -57,9 +57,7 @@ def _download_channel_manifest(
     # Grabs the manifest data
     try:
         logger.debug(f"Fetching manifest from {manifest_fetch_url}")
-        manifest_response = requests.get(
-            manifest_fetch_url, timeout=MANIFEST_REQUEST_TIMEOUT
-        )
+        manifest_response = requests.get(manifest_fetch_url, timeout=MANIFEST_REQUEST_TIMEOUT)
         manifest_response.raise_for_status()  # raise an error if the request didn't succeed
 
         manifest_json = json.loads(manifest_response.text)
@@ -110,9 +108,7 @@ def _download_channel_manifest(
         raise OSError(f"Failed to download manifest: {e}") from e
 
 
-def _parse_channel_manifest(
-    channel_manifest: dict, channel: str = "release"
-) -> tuple[str, str]:
+def _parse_channel_manifest(channel_manifest: dict, channel: str = "release") -> tuple[str, str]:
     if channel == "preview":
         item_name = PREVIEW_CHANNEL_MANIFEST_NAME
     elif channel == "release":
@@ -129,9 +125,7 @@ def _parse_channel_manifest(
                 break
 
         if vs is None:
-            raise ValueError(
-                f"Could not find item with id '{item_name}' in channel manifest"
-            )
+            raise ValueError(f"Could not find item with id '{item_name}' in channel manifest")
 
         vs_manifest_url = vs["payloads"][0]["url"]
         vs_manifest_hash = vs["payloads"][0].get("sha256", "")
@@ -196,11 +190,7 @@ def _download_vs_manifest(
 
         cached_channel_hash = cache_meta.get("channel_sha256", "").lower()
         expected = expected_hash.lower()
-        if (
-            expected
-            and cached_channel_hash
-            and cached_channel_hash != expected
-        ):
+        if expected and cached_channel_hash and cached_channel_hash != expected:
             logger.warning("Cached VS manifest belongs to a different channel hash")
         elif time.time() - cache_meta["timestamp"] < cache_ttl:
             manifest = read_cached_manifest(cache_meta)
@@ -211,9 +201,7 @@ def _download_vs_manifest(
     # Download the VS manifest
     try:
         logger.debug(f"Fetching VS manifest from {vs_manifest_url}")
-        manifest_response = requests.get(
-            vs_manifest_url, timeout=MANIFEST_REQUEST_TIMEOUT
-        )
+        manifest_response = requests.get(vs_manifest_url, timeout=MANIFEST_REQUEST_TIMEOUT)
         manifest_response.raise_for_status()  # raise an error if the request didn't succeed
 
         manifest_bytes = manifest_response.content
@@ -231,8 +219,7 @@ def _download_vs_manifest(
                 body_cache_path = content_cache_path(manifest_hash)
                 if (
                     not body_cache_path.exists()
-                    or hashlib.sha256(body_cache_path.read_bytes()).hexdigest()
-                    != manifest_hash
+                    or hashlib.sha256(body_cache_path.read_bytes()).hexdigest() != manifest_hash
                 ):
                     body_cache_path.write_bytes(manifest_bytes)
 
@@ -331,9 +318,7 @@ def get_vs_manifest(
     )
 
     # Step 2: Parse the channel manifest to get the VS manifest URL
-    vs_manifest_url, vs_manifest_hash = _parse_channel_manifest(
-        channel_manifest, channel=channel
-    )
+    vs_manifest_url, vs_manifest_hash = _parse_channel_manifest(channel_manifest, channel=channel)
 
     # Step 3: Download the VS manifest
     vs_manifest, final_url, final_hash = _download_vs_manifest(

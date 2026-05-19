@@ -9,12 +9,8 @@ import pytest
 @pytest.mark.cli
 def test_normal_vs_lockfile_same_versions(normal_test_install, lockfile_test_install):
     """Verify both installs have same versions."""
-    normal_env = json.loads(
-        (normal_test_install["install_path"] / "env.json").read_text()
-    )
-    lockfile_env = json.loads(
-        (lockfile_test_install["install_path"] / "env.json").read_text()
-    )
+    normal_env = json.loads((normal_test_install["install_path"] / "env.json").read_text())
+    lockfile_env = json.loads((lockfile_test_install["install_path"] / "env.json").read_text())
 
     version_keys = [
         "VCToolsVersion",
@@ -171,9 +167,7 @@ def test_compile_cpp_with_normal_install(normal_test_install, tmp_path):
     env = json.loads((normal_test_install["install_path"] / "env.json").read_text())
 
     test_cpp = tmp_path / "test.cpp"
-    test_cpp.write_text(
-        '#include <iostream>\nint main(){std::cout << "CPP_NORMAL";return 0;}'
-    )
+    test_cpp.write_text('#include <iostream>\nint main(){std::cout << "CPP_NORMAL";return 0;}')
 
     new_path = ";".join(env["PATH"]) + ";" + local.env["PATH"]
     cl = local[env["CXX"]].with_env(
@@ -199,9 +193,7 @@ def test_windows_sdk_headers_with_lockfile_install(lockfile_test_install, tmp_pa
 
     test_c = tmp_path / "test_win.c"
     test_c.write_text(
-        "#include <windows.h>\n"
-        "#include <stdio.h>\n"
-        'int main(){printf("WIN_OK");return 0;}'
+        '#include <windows.h>\n#include <stdio.h>\nint main(){printf("WIN_OK");return 0;}'
     )
 
     new_path = ";".join(env["PATH"]) + ";" + local.env["PATH"]
@@ -228,9 +220,7 @@ def test_windows_sdk_headers_with_normal_install(normal_test_install, tmp_path):
 
     test_c = tmp_path / "test_win.c"
     test_c.write_text(
-        "#include <windows.h>\n"
-        "#include <stdio.h>\n"
-        'int main(){printf("WIN_OK");return 0;}'
+        '#include <windows.h>\n#include <stdio.h>\nint main(){printf("WIN_OK");return 0;}'
     )
 
     new_path = ";".join(env["PATH"]) + ";" + local.env["PATH"]
@@ -297,9 +287,7 @@ def test_tool_versions_in_env_json(normal_test_install, lockfile_test_install):
         assert "PORTABLE_MSVC_PACKAGE_VERSION" in env, (
             f"{name} missing PORTABLE_MSVC_PACKAGE_VERSION"
         )
-        assert "PORTABLE_SDK_BUILD_NUMBER" in env, (
-            f"{name} missing PORTABLE_SDK_BUILD_NUMBER"
-        )
+        assert "PORTABLE_SDK_BUILD_NUMBER" in env, f"{name} missing PORTABLE_SDK_BUILD_NUMBER"
         assert "PORTABLE_SDK_VERSION" in env, f"{name} missing PORTABLE_SDK_VERSION"
 
         assert "TOOL_VERSIONS" in env, f"{name} install missing TOOL_VERSIONS"

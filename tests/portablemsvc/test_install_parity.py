@@ -18,8 +18,7 @@ def _hash_tree(root: Path) -> dict[str, str]:
     return {
         path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
         for path in sorted(root.rglob("*"))
-        if path.is_file()
-        and path.relative_to(root).as_posix() not in generated_metadata
+        if path.is_file() and path.relative_to(root).as_posix() not in generated_metadata
     }
 
 
